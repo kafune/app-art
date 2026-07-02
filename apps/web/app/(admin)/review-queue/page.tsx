@@ -14,8 +14,8 @@ type CaseRow = {
   riskLevel: string | null
   triageScore: number | null
   createdAt: string
-  condominium: { name: string }
-  unit: { identifier: string }
+  condominium: { name: string } | null
+  unit: { identifier: string } | null
 }
 
 export default function ReviewQueuePage() {
@@ -125,8 +125,8 @@ export default function ReviewQueuePage() {
                     {c.protocol}
                   </span>
                   <div>
-                    <div className="text-sm font-medium text-ink-900">{c.condominium.name}</div>
-                    <div className="mt-0.5 text-xs text-ink-500">Un.&nbsp;{c.unit.identifier}</div>
+                    <div className="text-sm font-medium text-ink-900">{c.condominium?.name ?? "—"}</div>
+                    <div className="mt-0.5 text-xs text-ink-500">Un.&nbsp;{c.unit?.identifier ?? "—"}</div>
                   </div>
                   <div>
                     {c.riskLevel ? (

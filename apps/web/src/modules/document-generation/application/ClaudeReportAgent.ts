@@ -47,13 +47,33 @@ function extractJson(raw: string): string | null {
 }
 
 function buildNarrativePrompt(templateId: TemplateId, caseData: ReformCaseData): string {
-  const { reformCase } = caseData
+  const { reformCase, documents } = caseData
   const scope = reformCase.reformScope
     ? JSON.stringify(reformCase.reformScope, null, 2)
     : "(não disponível)"
   const evaluation = reformCase.evaluationResult
     ? JSON.stringify(reformCase.evaluationResult, null, 2)
     : "(não disponível)"
+
+  // Digest da análise documental (status + pendências por documento) para que
+  // recomendação e pendências narradas considerem ART/RRT e demais documentos.
+  const docsDigest =
+    documents.length > 0
+      ? documents
+          .map((d) => {
+            const pend = d.pendencies as {
+              items?: string[]
+              recommendation?: string | null
+              reasoning?: string
+            } | null
+            const parts = [`- ${d.type} (${d.fileName}): status ${d.status}`]
+            if (pend?.recommendation) parts.push(`  recomendação: ${pend.recommendation}`)
+            if (pend?.items?.length) parts.push(`  pendências: ${pend.items.join("; ")}`)
+            return parts.join("\n")
+          })
+          .join("\n")
+          .slice(0, 4000)
+      : "(nenhum documento enviado)"
 
   return [
     `Você é um analista técnico de reformas prediais. Gere texto em português para o relatório "${templateId}".`,
@@ -69,6 +89,9 @@ function buildNarrativePrompt(templateId: TemplateId, caseData: ReformCaseData):
     "",
     "RESULTADO DA AVALIAÇÃO:",
     evaluation,
+    "",
+    "ANÁLISE DOCUMENTAL (status e pendências dos documentos enviados):",
+    docsDigest,
     "",
     "Responda APENAS com um objeto JSON entre as tags <narrative>...</narrative>.",
     "O JSON pode ter os campos: recomendacao, pendencias, instrucoes, descricao_obra",
@@ -97,6 +120,123 @@ const DOC_TYPE_PT: Record<string, string> = {
 
 function docLabel(doc: { type: string; fileName: string }): string {
   return `${DOC_TYPE_PT[doc.type] ?? doc.type} (${doc.fileName})`
+}
+
+const DOC_STATUS_PT: Record<string, string> = {
+  PENDING: "Pendente de análise",
+  PROCESSING: "Em processamento",
+  VALID: "Válido",
+  VALID_WITH_CAVEATS: "Válido com ressalvas",
+  INVALID: "Inválido",
+  MISSING: "Ausente",
+}
+
+const RECOMMENDATION_PT: Record<string, string> = {
+  approve: "Aprovar",
+  approve_with_caveats: "Aprovar com ressalvas",
+  reject: "Reprovar",
+  request_corrections: "Solicitar correções",
+}
+
+/** Estrutura persistida em Document.pendencies pelo DocumentWorker. */
+interface DocPendencies {
+  items?: string[]
+  inconsistencies?: Array<{ description: string; severity?: string }>
+  recommendation?: string | null
+  reasoning?: string
+}
+
+/**
+ * Consolida a análise de cada documento (status, dados extraídos,
+ * inconsistências, pendências e parecer da IA) em markdown para a seção
+ * "Análise documental" do relatório.
+ */
+function buildDocumentAnalysisSection(documents: ReformCaseData["documents"]): string {
+  if (documents.length === 0) {
+    return "(nenhum documento enviado até a data deste relatório)"
+  }
+
+  const blocks = documents.map((doc) => {
+    const lines: string[] = [`### ${docLabel(doc)}`, ""]
+    lines.push(`- **Status:** ${DOC_STATUS_PT[doc.status] ?? doc.status}`)
+
+    const extracted = doc.extractedData as Record<string, unknown> | null
+    if (extracted && Object.keys(extracted).length > 0) {
+      const fields = Object.entries(extracted)
+        .filter(([, v]) => v != null && typeof v !== "object")
+        .slice(0, 20)
+        .map(([k, v]) => `  - ${k}: ${String(v)}`)
+      if (fields.length > 0) {
+        lines.push("- **Dados extraídos:**", ...fields)
+      }
+    }
+
+    const pend = doc.pendencies as DocPendencies | null
+    if (pend) {
+      if (pend.inconsistencies && pend.inconsistencies.length > 0) {
+        lines.push(
+          "- **Inconsistências:**",
+          ...pend.inconsistencies.map(
+            (inc) => `  - ${inc.description}${inc.severity ? ` (severidade: ${inc.severity})` : ""}`,
+          ),
+        )
+      }
+      if (pend.items && pend.items.length > 0) {
+        lines.push("- **Pendências:**", ...pend.items.map((p) => `  - ${p}`))
+      }
+      if (pend.recommendation) {
+        lines.push(
+          `- **Parecer da análise:** ${RECOMMENDATION_PT[pend.recommendation] ?? pend.recommendation}`,
+        )
+      }
+      if (pend.reasoning) {
+        lines.push(`- **Justificativa:** ${pend.reasoning}`)
+      }
+    }
+
+    return lines.join("\n")
+  })
+
+  return blocks.join("\n\n")
+}
+
+const CONVERSATION_ROLE_PT: Record<string, string> = {
+  USER: "Morador",
+  ASSISTANT: "Assistente",
+}
+
+const MAX_CONVERSATION_MESSAGES = 200
+const MAX_MESSAGE_CHARS = 800
+
+/**
+ * Formata a conversa de triagem para o anexo do relatório. Mensagens SYSTEM
+ * são omitidas; mensagens longas são truncadas para manter o PDF legível.
+ */
+function buildConversationSection(messages: ReformCaseData["messages"]): string {
+  const visible = (messages ?? []).filter((m) => m.role !== "SYSTEM")
+  if (visible.length === 0) {
+    return "(nenhuma interação registrada na triagem)"
+  }
+
+  const capped = visible.slice(0, MAX_CONVERSATION_MESSAGES)
+  const lines = capped.map((m) => {
+    const who = CONVERSATION_ROLE_PT[m.role] ?? m.role
+    const when = new Date(m.createdAt).toLocaleString("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    })
+    const text =
+      m.content.length > MAX_MESSAGE_CHARS
+        ? `${m.content.slice(0, MAX_MESSAGE_CHARS)} […]`
+        : m.content
+    return `**${who}** (${when}): ${text.replace(/\n+/g, " ")}`
+  })
+
+  if (visible.length > capped.length) {
+    lines.push(`_(${visible.length - capped.length} mensagens omitidas por limite de tamanho)_`)
+  }
+
+  return lines.join("\n\n")
 }
 
 function buildBaseVariables(
@@ -238,6 +378,8 @@ function buildBaseVariables(
   if (templateId === "relatorio-analise") {
     Object.assign(base, {
       nome_responsavel: partner?.name,
+      analise_documentos: buildDocumentAnalysisSection(documents),
+      historico_conversa: buildConversationSection(caseData.messages),
     })
   }
 

@@ -373,9 +373,14 @@ export default function CaseDetailPage() {
         <InspectionsPanel caseId={caseId} />
       </div>
 
-      {/* Relatórios & documentos gerados — aparece quando há relatórios */}
+      {/* Relatórios & documentos gerados — com geração da análise completa
+          em PDF assim que o caso está classificado */}
       <div className="mt-4 empty:hidden">
-        <ReportsSection caseId={caseId} refreshKey={data.status} />
+        <ReportsSection
+          caseId={caseId}
+          refreshKey={data.status}
+          allowGenerate={data.riskLevel != null}
+        />
       </div>
 
       {/* ART */}
