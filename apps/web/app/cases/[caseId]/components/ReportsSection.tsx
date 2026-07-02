@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Icon, Eyebrow, type IconName } from "@/interfaces/components/ui"
 
 interface ReportRow {
@@ -30,35 +30,71 @@ function formatDate(iso: string): string {
 
 /**
  * Central de relatórios do caso — todos os documentos gerados pela plataforma
- * num só lugar, com download em PDF. Não aparece se não houver relatórios.
+ * num só lugar, com download em PDF. Quando `allowGenerate` é verdadeiro,
+ * exibe também o botão para gerar o relatório de análise completo (conversa
+ * de triagem + classificação + análise documental consolidadas em um PDF).
  */
 export function ReportsSection({
   caseId,
   refreshKey,
+  allowGenerate = false,
 }: {
   caseId: string
   refreshKey?: string
+  allowGenerate?: boolean
 }) {
   const [reports, setReports] = useState<ReportRow[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchReports = useCallback(() => {
+    return fetch(`/api/v1/cases/${caseId}/reports`)
+      .then((r) => (r.ok ? r.json() : { reports: [] }))
+      .then((body) => {
+        setReports(Array.isArray(body.reports) ? body.reports : [])
+      })
+      .catch(() => {})
+  }, [caseId])
 
   useEffect(() => {
     let active = true
-    fetch(`/api/v1/cases/${caseId}/reports`)
-      .then((r) => (r.ok ? r.json() : { reports: [] }))
-      .then((body) => {
-        if (active) setReports(Array.isArray(body.reports) ? body.reports : [])
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoaded(true)
-      })
+    fetchReports().finally(() => {
+      if (active) setLoaded(true)
+    })
     return () => {
       active = false
     }
-  }, [caseId, refreshKey])
+  }, [fetchReports, refreshKey])
 
-  if (!loaded || reports.length === 0) return null
+  async function generateFullAnalysis() {
+    setGenerating(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/cases/${caseId}/reports/generate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reportType: "ANALYSIS", enrichWithAI: true }),
+      })
+      if (res.status === 429) {
+        setError("Muitas gerações em sequência. Aguarde alguns minutos e tente novamente.")
+        return
+      }
+      if (!res.ok) {
+        setError("Não foi possível gerar o relatório agora. Tente novamente.")
+        return
+      }
+      const report = (await res.json()) as { id: string }
+      await fetchReports()
+      window.open(`/api/v1/cases/${caseId}/reports/${report.id}/pdf`, "_blank", "noopener")
+    } catch {
+      setError("Não foi possível gerar o relatório agora. Tente novamente.")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  if (!loaded || (reports.length === 0 && !allowGenerate)) return null
 
   return (
     <div className="rounded-md bg-surface p-5 shadow-hair" data-testid="reports-section">
@@ -72,35 +108,61 @@ export function ReportsSection({
         </div>
       </div>
 
-      <ul className="flex flex-col divide-y divide-divider">
-        {reports.map((r) => {
-          const meta = TYPE_META[r.type] ?? { label: r.type, icon: "doc" as IconName }
-          return (
-            <li key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-              <Icon name={meta.icon} size={15} className="shrink-0 text-ink-400" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-ink-900">
-                  {meta.label}
-                  {r.version > 1 && (
-                    <span className="ml-1 font-mono text-[10px] text-ink-400">v{r.version}</span>
-                  )}
-                </p>
-                <p className="font-mono text-[10px] text-ink-400">{formatDate(r.generatedAt)}</p>
-              </div>
-              <a
-                href={`/api/v1/cases/${caseId}/reports/${r.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm bg-bone-100 px-2.5 py-1 text-[11px] font-medium text-ink-700 transition-colors hover:bg-bone-200"
-                title="Baixar PDF"
-              >
-                <Icon name="doc" size={11} />
-                PDF
-              </a>
-            </li>
-          )
-        })}
-      </ul>
+      {reports.length > 0 && (
+        <ul className="flex flex-col divide-y divide-divider">
+          {reports.map((r) => {
+            const meta = TYPE_META[r.type] ?? { label: r.type, icon: "doc" as IconName }
+            return (
+              <li key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <Icon name={meta.icon} size={15} className="shrink-0 text-ink-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-ink-900">
+                    {meta.label}
+                    {r.version > 1 && (
+                      <span className="ml-1 font-mono text-[10px] text-ink-400">v{r.version}</span>
+                    )}
+                  </p>
+                  <p className="font-mono text-[10px] text-ink-400">{formatDate(r.generatedAt)}</p>
+                </div>
+                <a
+                  href={`/api/v1/cases/${caseId}/reports/${r.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm bg-bone-100 px-2.5 py-1 text-[11px] font-medium text-ink-700 transition-colors hover:bg-bone-200"
+                  title="Baixar PDF"
+                >
+                  <Icon name="doc" size={11} />
+                  PDF
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {allowGenerate && (
+        <div className={reports.length > 0 ? "mt-3 border-t border-divider pt-3" : ""}>
+          <button
+            type="button"
+            onClick={generateFullAnalysis}
+            disabled={generating}
+            data-testid="generate-full-analysis"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm bg-green-800 px-3 py-2 text-xs font-medium text-bone-50 transition-colors hover:bg-green-900 disabled:cursor-wait disabled:opacity-60"
+          >
+            <Icon name="doc" size={13} />
+            {generating ? "Gerando análise completa…" : "Gerar análise completa (PDF)"}
+          </button>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-ink-400">
+            Consolida a conversa da triagem, a classificação de risco e o resultado
+            da análise dos documentos em um único PDF.
+          </p>
+          {error && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-red-700" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 flex items-start gap-1.5 border-t border-divider pt-2.5">
         <Icon name="shield" size={12} className="mt-0.5 shrink-0 text-ink-400" />

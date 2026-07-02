@@ -29,13 +29,26 @@ As seguintes regras do motor determinístico foram aplicadas a este caso:
 
 {{regras_ativadas}}
 
-## 5. Pendências identificadas
+## 5. Análise documental
+
+Resultado consolidado da análise dos documentos enviados para este caso:
+
+{{analise_documentos}}
+
+## 6. Pendências identificadas
 
 {{pendencias}}
 
-## 6. Recomendação
+## 7. Recomendação
 
 {{recomendacao}}
+
+## Anexo — Histórico da triagem
+
+Registro da conversa entre o morador e o assistente de triagem que originou o
+escopo declarado neste relatório:
+
+{{historico_conversa}}
 
 ---
 

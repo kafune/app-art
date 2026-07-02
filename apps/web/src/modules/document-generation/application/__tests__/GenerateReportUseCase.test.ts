@@ -58,7 +58,7 @@ function makeCaseRepo(reformCase: ReformCase | null = FAKE_CASE): ReformCaseRepo
     listByTenant: vi.fn(),
     applyScopeClassification: vi.fn(),
     appendMessage: vi.fn(),
-    listMessages: vi.fn(),
+    listMessages: vi.fn().mockResolvedValue([]),
   }
 }
 
@@ -249,6 +249,60 @@ describe("GenerateReportUseCase", () => {
       const [templateId, , options] = agentMock.mock.calls[0] as [string, unknown, { enrichWithAI?: boolean }]
       expect(templateId).toBe("parecer-pendencias")
       expect(options?.enrichWithAI).toBe(true)
+    })
+  })
+
+  describe("cenário (b2): conversa de triagem no relatório de análise", () => {
+    it("carrega as mensagens e as repassa ao agente para ANALYSIS", async () => {
+      const mockContent = `# Relatório\n\n${DISCLAIMER_MARKER}\n`
+      const caseRepo = makeCaseRepo()
+      const messages = [
+        { id: "m1", role: "USER", content: "Quero trocar o piso", createdAt: new Date() },
+      ]
+      ;(caseRepo.listMessages as ReturnType<typeof vi.fn>).mockResolvedValue(messages)
+      const reportAgent = makeReportAgent(mockContent)
+
+      const useCase = new GenerateReportUseCase({
+        caseRepo,
+        docRepo: makeDocRepo(),
+        reportRepo: makeReportRepo(),
+        storage: makeStorage(),
+        reportAgent,
+      })
+
+      await useCase.execute({
+        caseId: "case-1",
+        tenantId: "tenant-1",
+        reportType: ReportType.ANALYSIS,
+        generatedBy: "user:user-1",
+      })
+
+      expect(caseRepo.listMessages).toHaveBeenCalledWith("case-1", "tenant-1")
+      const agentMock = reportAgent.generateReport as ReturnType<typeof vi.fn>
+      const [, caseData] = agentMock.mock.calls[0] as [string, { messages?: unknown[] }]
+      expect(caseData.messages).toEqual(messages)
+    })
+
+    it("não carrega mensagens para relatórios que não usam o template de análise", async () => {
+      const mockContent = `# Relatório\n\n${DISCLAIMER_MARKER}\n`
+      const caseRepo = makeCaseRepo()
+
+      const useCase = new GenerateReportUseCase({
+        caseRepo,
+        docRepo: makeDocRepo(),
+        reportRepo: makeReportRepo(),
+        storage: makeStorage(),
+        reportAgent: makeReportAgent(mockContent),
+      })
+
+      await useCase.execute({
+        caseId: "case-1",
+        tenantId: "tenant-1",
+        reportType: ReportType.COMMERCIAL_PROPOSAL,
+        generatedBy: "user:user-1",
+      })
+
+      expect(caseRepo.listMessages).not.toHaveBeenCalled()
     })
   })
 

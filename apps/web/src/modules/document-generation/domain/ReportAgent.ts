@@ -14,6 +14,13 @@ export interface CaseRelations {
   sindicoContact?: { name: string; email: string } | null
 }
 
+/** Mensagem da conversa de triagem, usada no anexo do relatório de análise. */
+export interface CaseMessage {
+  role: string
+  content: string
+  createdAt: Date
+}
+
 /**
  * Rich data snapshot of a reform case used for report generation.
  * Assembled by GenerateReportUseCase from the case + its documents.
@@ -25,6 +32,8 @@ export interface ReformCaseData {
   documents: Document[]
   /** Nomes/relações resolvidos (condomínio, unidade, proprietário, etc.). */
   relations?: CaseRelations
+  /** Conversa de triagem do caso (quando o relatório a consolida). */
+  messages?: CaseMessage[]
 }
 
 /**

@@ -71,6 +71,12 @@ export class GenerateReportUseCase {
     // 3. Map ReportType → TemplateId
     const templateId = REPORT_TYPE_TO_TEMPLATE[reportType]
 
+    // 3b. O relatório de análise consolida também a conversa de triagem
+    const messages =
+      templateId === "relatorio-analise"
+        ? await caseRepo.listMessages(caseId, tenantId)
+        : undefined
+
     logger.info("report.generate.start", {
       tenantId,
       caseId,
@@ -83,7 +89,7 @@ export class GenerateReportUseCase {
     // 4. Generate report content via the agent
     const { content } = await reportAgent.generateReport(
       templateId,
-      { reformCase, documents: documents as Document[], relations },
+      { reformCase, documents: documents as Document[], relations, messages },
       { enrichWithAI },
     )
 

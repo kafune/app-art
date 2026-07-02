@@ -73,6 +73,63 @@ describe("ClaudeReportAgent — relações no conteúdo", () => {
     expect(content).toContain("cond-1")
   })
 
+  it("consolida análise documental e conversa no relatório de análise", async () => {
+    const docs = [
+      {
+        type: "ART_RRT",
+        fileName: "art.pdf",
+        status: "VALID_WITH_CAVEATS",
+        extractedData: { numero_art: "ART-987", responsavel: "Eng. João" },
+        pendencies: {
+          items: ["Falta assinatura do responsável"],
+          inconsistencies: [
+            { description: "CREA divergente do cadastro", severity: "medium" },
+          ],
+          recommendation: "approve_with_caveats",
+          reasoning: "Documento coerente com o escopo, com ressalvas.",
+        },
+      },
+    ] as unknown as Document[]
+
+    const messages = [
+      { role: "SYSTEM", content: "prompt interno", createdAt: new Date("2026-01-01T09:00:00Z") },
+      { role: "USER", content: "Quero trocar o piso da sala", createdAt: new Date("2026-01-01T10:00:00Z") },
+      { role: "ASSISTANT", content: "Entendido, será com demolição?", createdAt: new Date("2026-01-01T10:01:00Z") },
+    ]
+
+    const agent = new ClaudeReportAgent(makeLLM())
+    const { content } = await agent.generateReport(
+      "relatorio-analise",
+      { reformCase: BASE_CASE, documents: docs, relations: RELATIONS, messages },
+      { enrichWithAI: false },
+    )
+
+    // Análise documental
+    expect(content).toContain("ART/RRT (art.pdf)")
+    expect(content).toContain("Válido com ressalvas")
+    expect(content).toContain("numero_art: ART-987")
+    expect(content).toContain("CREA divergente do cadastro")
+    expect(content).toContain("Falta assinatura do responsável")
+    expect(content).toContain("Aprovar com ressalvas")
+
+    // Conversa de triagem (SYSTEM omitido)
+    expect(content).toContain("Quero trocar o piso da sala")
+    expect(content).toContain("**Morador**")
+    expect(content).toContain("**Assistente**")
+    expect(content).not.toContain("prompt interno")
+  })
+
+  it("usa fallbacks quando não há documentos nem conversa", async () => {
+    const agent = new ClaudeReportAgent(makeLLM())
+    const { content } = await agent.generateReport(
+      "relatorio-analise",
+      { reformCase: BASE_CASE, documents: [], relations: RELATIONS },
+      { enrichWithAI: false },
+    )
+    expect(content).toContain("(nenhum documento enviado até a data deste relatório)")
+    expect(content).toContain("(nenhuma interação registrada na triagem)")
+  })
+
   it("preenche documentos válidos/pendentes no parecer", async () => {
     const docs = [
       { type: "ART_RRT", fileName: "art.pdf", status: "VALID", pendencies: null },
