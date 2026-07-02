@@ -17,7 +17,7 @@ type CaseRow = {
   triageScore: number | null
   reformScope: unknown
   createdAt: string
-  unit: UnitRow
+  unit: UnitRow | null
 }
 
 function scopeDescription(scope: unknown): string {
@@ -80,7 +80,7 @@ function CasesTable({
 
               {/* Unidade */}
               <span className="text-sm font-medium text-ink-800">
-                {c.unit.identifier}
+                {c.unit?.identifier ?? "—"}
               </span>
 
               {/* Escopo */}

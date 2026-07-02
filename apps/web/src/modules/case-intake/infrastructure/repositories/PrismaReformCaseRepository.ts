@@ -50,6 +50,16 @@ export class PrismaReformCaseRepository implements ReformCaseRepository {
             }
           : {}),
       },
+      // Relações exibidas nas listagens (síndico, parceiro, fila de revisão)
+      include: {
+        unit: { select: { id: true, identifier: true, block: true } },
+        condominium: { select: { id: true, name: true } },
+        inspections: {
+          where: { status: "SCHEDULED" },
+          orderBy: { scheduledAt: "asc" },
+          select: { id: true, type: true, scheduledAt: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     })
   }

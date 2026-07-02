@@ -42,9 +42,9 @@ type CaseRow = {
   riskLevel: string | null
   triageScore: number | null
   updatedAt: string
-  condominium: { name: string }
-  unit: { identifier: string }
-  inspections: InspectionRow[]
+  condominium: { name: string } | null
+  unit: { identifier: string } | null
+  inspections: InspectionRow[] | null
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -192,7 +192,7 @@ function PartnerCasesContent() {
 
               {/* Table rows */}
               {cases.map((c, i) => {
-                const nextInspection = c.inspections[0] ?? null
+                const nextInspection = c.inspections?.[0] ?? null
                 return (
                   <div
                     key={c.id}
@@ -208,10 +208,10 @@ function PartnerCasesContent() {
                     {/* Condo · Unit */}
                     <div>
                       <div className="text-sm font-medium text-ink-900">
-                        {c.condominium.name}
+                        {c.condominium?.name ?? "—"}
                       </div>
                       <div className="text-xs text-ink-500 mt-0.5">
-                        Un. {c.unit.identifier}
+                        Un. {c.unit?.identifier ?? "—"}
                       </div>
                     </div>
 
