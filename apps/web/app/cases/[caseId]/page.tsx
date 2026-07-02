@@ -170,13 +170,25 @@ export default function CaseDetailPage() {
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login") }, [status, router])
 
+  // Snapshot da última resposta — evita setState (e re-render/flicker) quando
+  // o polling devolve exatamente os mesmos dados.
+  const lastSnapshotRef = useRef<{ case: string; messages: string }>({ case: "", messages: "" })
+
   async function reload() {
     const [c, m] = await Promise.all([
       fetch(`/api/v1/cases/${caseId}`).then((r) => r.json()),
       fetch(`/api/v1/cases/${caseId}/messages`).then((r) => r.json()),
     ])
-    setData(c)
-    setMessages(m.messages ?? [])
+    const caseSnap = JSON.stringify(c)
+    const msgSnap = JSON.stringify(m.messages ?? [])
+    if (caseSnap !== lastSnapshotRef.current.case) {
+      lastSnapshotRef.current.case = caseSnap
+      setData(c)
+    }
+    if (msgSnap !== lastSnapshotRef.current.messages) {
+      lastSnapshotRef.current.messages = msgSnap
+      setMessages(m.messages ?? [])
+    }
   }
 
   // Polling em estados transitórios (10s)
@@ -240,7 +252,17 @@ export default function CaseDetailPage() {
   }
 
   useEffect(() => { if (status === "authenticated") reload() }, [status, caseId])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages, streamingContent])
+
+  // Auto-scroll do chat: apenas quando chega mensagem NOVA ou durante o
+  // streaming — nunca em refetch de polling (senão a página "desce sozinha").
+  const prevMsgCountRef = useRef(0)
+  useEffect(() => {
+    const grew = messages.length > prevMsgCountRef.current
+    prevMsgCountRef.current = messages.length
+    if (grew || streamingContent) {
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    }
+  }, [messages, streamingContent])
 
   function send(e: React.FormEvent) {
     e.preventDefault()
@@ -636,7 +658,7 @@ export default function CaseDetailPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={listening ? "Ouvindo… fale agora" : "Descreva a reforma…"}
-            className="min-h-[22px] border-none bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-300"
+            className="min-h-[22px] border-none bg-transparent text-base text-ink-900 outline-none placeholder:text-ink-300 md:text-sm"
             disabled={sending}
             data-testid="chat-input"
           />
@@ -698,7 +720,7 @@ export default function CaseDetailPage() {
           role="dialog"
           aria-labelledby="review-dialog-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-2xl">
+          <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-xl bg-surface p-6 shadow-2xl">
             {reviewDone ? (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">

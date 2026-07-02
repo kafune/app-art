@@ -42,7 +42,7 @@ export function Input({
         <input
           id={id}
           className={cn(
-            "min-w-0 flex-1 border-none bg-transparent text-sm text-ink-900 outline-none",
+            "min-w-0 flex-1 border-none bg-transparent text-base text-ink-900 outline-none md:text-sm",
             "placeholder:text-ink-300",
             mono && "font-mono",
             className,

@@ -392,7 +392,7 @@ export default function SindicoCaseDetailPage() {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       placeholder="Observações para o registro..."
-                      className="w-full rounded-lg border border-divider bg-bone-50 px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-azulejo-400 focus:outline-none focus:ring-1 focus:ring-azulejo-400 resize-none"
+                      className="w-full rounded-lg border border-divider bg-bone-50 px-3 py-2 text-base md:text-sm text-ink-900 placeholder:text-ink-400 focus:border-azulejo-400 focus:outline-none focus:ring-1 focus:ring-azulejo-400 resize-none"
                       rows={3}
                       maxLength={1000}
                     />
@@ -438,7 +438,7 @@ export default function SindicoCaseDetailPage() {
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       placeholder="Descreva o motivo da recusa de forma clara..."
-                      className="w-full rounded-lg border border-divider bg-bone-50 px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-azulejo-400 focus:outline-none focus:ring-1 focus:ring-azulejo-400 resize-none"
+                      className="w-full rounded-lg border border-divider bg-bone-50 px-3 py-2 text-base md:text-sm text-ink-900 placeholder:text-ink-400 focus:border-azulejo-400 focus:outline-none focus:ring-1 focus:ring-azulejo-400 resize-none"
                       rows={4}
                       maxLength={2000}
                       required

@@ -107,8 +107,8 @@ export default function AuditPage() {
             <p className="text-sm font-medium text-ink-700">Nenhum evento de auditoria</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg bg-surface shadow-hair">
-            <div className="grid grid-cols-[160px_1fr_180px_120px] gap-4 border-b border-divider bg-bone-50 px-5 py-3">
+          <div className="overflow-x-auto rounded-lg bg-surface shadow-hair">
+            <div className="grid min-w-[720px] grid-cols-[160px_1fr_180px_120px] gap-4 border-b border-divider bg-bone-50 px-5 py-3">
               <Eyebrow>Quando</Eyebrow>
               <Eyebrow>Ação</Eyebrow>
               <Eyebrow>Por</Eyebrow>
@@ -123,7 +123,7 @@ export default function AuditPage() {
                     <button
                       type="button"
                       onClick={() => hasDetails && setExpanded(open ? null : e.id)}
-                      className="grid w-full grid-cols-[160px_1fr_180px_120px] gap-4 px-5 py-3 text-left transition-colors hover:bg-bone-50"
+                      className="grid w-full min-w-[720px] grid-cols-[160px_1fr_180px_120px] gap-4 px-5 py-3 text-left transition-colors hover:bg-bone-50"
                     >
                       <span className="font-mono text-xs text-ink-500">{fmt(e.createdAt)}</span>
                       <span className="flex items-center gap-2 text-sm text-ink-900">

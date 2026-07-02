@@ -112,7 +112,7 @@ export function ImageCarousel({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-white/60 transition-colors duration-150 hover:bg-white/10 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-white/60 transition-colors duration-150 hover:bg-white/10 hover:text-white max-md:h-11 max-md:w-11"
             aria-label="Fechar galeria"
           >
             <Icon name="close" size={14} />

@@ -198,15 +198,28 @@ export function DocumentList({
   const [viewer, setViewer] = useState<ViewerState>(DEFAULT_VIEWER)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Evita re-render (flicker) nos ticks do polling em que nada mudou
+  const lastSnapshotRef = useRef("")
+
   const fetchDocs = useCallback(async () => {
     const res = await fetch(`/api/v1/cases/${caseId}/documents`, { cache: "no-store" })
     if (!res.ok) return
     const body = await res.json()
-    setDocuments(body.documents ?? [])
+    const snap = JSON.stringify(body.documents ?? [])
+    if (snap !== lastSnapshotRef.current) {
+      lastSnapshotRef.current = snap
+      setDocuments(body.documents ?? [])
+    }
   }, [caseId])
 
   useEffect(() => {
-    setDocuments(initialDocuments)
+    // Reseed vindo do server (router.refresh): só aplica se realmente mudou,
+    // para não "voltar no tempo" sobre a lista recém-buscada pelo polling.
+    const snap = JSON.stringify(initialDocuments)
+    if (snap !== lastSnapshotRef.current) {
+      lastSnapshotRef.current = snap
+      setDocuments(initialDocuments)
+    }
   }, [initialDocuments])
 
   useEffect(() => {

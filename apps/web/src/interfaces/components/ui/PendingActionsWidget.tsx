@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import type { PendingAction, ActionUrgency } from "@/modules/case-intake/application/GetPendingActionsUseCase"
 
@@ -49,12 +49,19 @@ export function PendingActionsWidget() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  // Evita re-render (flicker) nos ticks do polling em que nada mudou
+  const lastSnapshotRef = useRef("")
+
   const fetchActions = useCallback(async () => {
     try {
       const res = await fetch("/api/v1/me/pending-actions")
       if (!res.ok) throw new Error("fetch failed")
       const data = await res.json()
-      setActions(data.actions ?? [])
+      const snap = JSON.stringify(data.actions ?? [])
+      if (snap !== lastSnapshotRef.current) {
+        lastSnapshotRef.current = snap
+        setActions(data.actions ?? [])
+      }
       setError(false)
     } catch {
       setError(true)

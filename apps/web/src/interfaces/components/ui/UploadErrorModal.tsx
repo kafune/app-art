@@ -36,7 +36,7 @@ export function UploadErrorModal({ files, onClose, onRetry }: UploadErrorModalPr
       <div className="absolute inset-0 bg-ink-900/40" onClick={onClose} />
 
       {/* Modal */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-md bg-surface shadow-4" style={{ width: 560 }}>
+      <div className="absolute left-1/2 top-1/2 max-h-[90dvh] w-[calc(100vw-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md bg-surface shadow-4">
         <div className="h-1 bg-iron-500" />
         <div className="p-7">
           {/* Cabeçalho */}

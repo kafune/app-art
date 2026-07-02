@@ -47,6 +47,7 @@ export function ReportsSection({
   const [loaded, setLoaded] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generatedId, setGeneratedId] = useState<string | null>(null)
 
   const fetchReports = useCallback(() => {
     return fetch(`/api/v1/cases/${caseId}/reports`)
@@ -70,6 +71,7 @@ export function ReportsSection({
   async function generateFullAnalysis() {
     setGenerating(true)
     setError(null)
+    setGeneratedId(null)
     try {
       const res = await fetch(`/api/v1/cases/${caseId}/reports/generate`, {
         method: "POST",
@@ -86,7 +88,9 @@ export function ReportsSection({
       }
       const report = (await res.json()) as { id: string }
       await fetchReports()
-      window.open(`/api/v1/cases/${caseId}/reports/${report.id}/pdf`, "_blank", "noopener")
+      // Não usamos window.open aqui: após um await longo o navegador não
+      // considera mais o clique como gesto do usuário e bloqueia o popup.
+      setGeneratedId(report.id)
     } catch {
       setError("Não foi possível gerar o relatório agora. Tente novamente.")
     } finally {
@@ -156,6 +160,25 @@ export function ReportsSection({
             Consolida a conversa da triagem, a classificação de risco e o resultado
             da análise dos documentos em um único PDF.
           </p>
+          {generatedId && (
+            <div
+              className="mt-2 flex items-center justify-between gap-2 rounded-sm bg-green-50 px-2.5 py-2"
+              role="status"
+            >
+              <span className="text-[11px] font-medium text-green-800">
+                Relatório pronto!
+              </span>
+              <a
+                href={`/api/v1/cases/${caseId}/reports/${generatedId}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm bg-green-800 px-2.5 py-1 text-[11px] font-medium text-bone-50 transition-colors hover:bg-green-900"
+              >
+                <Icon name="doc" size={11} />
+                Abrir PDF
+              </a>
+            </div>
+          )}
           {error && (
             <p className="mt-1.5 text-[11px] leading-relaxed text-red-700" role="alert">
               {error}

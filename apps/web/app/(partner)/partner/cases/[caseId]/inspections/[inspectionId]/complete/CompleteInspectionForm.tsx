@@ -181,7 +181,7 @@ export function CompleteInspectionForm({ caseId, inspectionId }: CompleteInspect
         <div className="flex items-center gap-2">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-bone-200">
             <div
-              className="h-full rounded-full transition-all duration-200"
+              className="h-full rounded-full transition-[width] duration-200"
               style={{
                 width: `${Math.min((notesLen / 50) * 100, 100)}%`,
                 background: notesValid ? "var(--rai-green-600)" : "var(--rai-ochre-500)",
