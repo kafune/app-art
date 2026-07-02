@@ -40,6 +40,11 @@ COPY --from=build /app/apps/web/public ./apps/web/public
 # Migration step needs the database package and its Prisma CLI.
 COPY --from=build /app/packages/database ./packages/database
 
+# Templates Markdown dos relatórios: o engine lê os .md em runtime
+# (readFileSync), e o output standalone do Next NÃO os inclui — sem esta
+# cópia, a geração de relatórios falha com ENOENT/500 em produção.
+COPY --from=build /app/packages/templates ./packages/templates
+
 EXPOSE 3000
 
 # As migrations rodam como passo separado do deploy (estágio `build`, que tem o

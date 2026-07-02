@@ -19,6 +19,12 @@ export async function GET(_: Request, ctx: { params: { caseId: string } }) {
             user: { select: { name: true } },
           },
         },
+        // Relações exibidas nas telas de detalhe (síndico e morador).
+        // client é um User — selecionar apenas campos públicos, nunca o
+        // registro completo (passwordHash).
+        unit: { select: { id: true, identifier: true, block: true, floor: true } },
+        client: { select: { id: true, name: true, email: true } },
+        condominium: { select: { id: true, name: true } },
       },
     })
     if (!found) throw new NotFoundError("ReformCase", ctx.params.caseId)
