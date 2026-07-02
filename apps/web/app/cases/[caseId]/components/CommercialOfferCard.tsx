@@ -37,10 +37,13 @@ export function CommercialOfferCard({
   caseId,
   isClient,
   onAccepted,
+  onLoaded,
 }: {
   caseId: string
   isClient: boolean
   onAccepted: () => void
+  /** Sinaliza ao pai que o primeiro fetch terminou (para revelar o rail de uma vez). */
+  onLoaded?: () => void
 }) {
   const [offer, setOffer] = useState<CaseOffer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -57,10 +60,12 @@ export function CommercialOfferCard({
       .catch(() => {})
       .finally(() => {
         if (active) setLoading(false)
+        onLoaded?.()
       })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId])
 
   async function accept() {

@@ -25,10 +25,7 @@ export function SessionExpiredModal({ user }: SessionExpiredModalProps) {
       <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]" />
 
       {/* Modal */}
-      <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-md bg-surface shadow-4"
-        style={{ width: 480 }}
-      >
+      <div className="absolute left-1/2 top-1/2 max-h-[90dvh] w-[calc(100vw-2rem)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md bg-surface shadow-4">
         {/* Barra de atenção */}
         <div className="h-1 bg-ochre-500" />
 

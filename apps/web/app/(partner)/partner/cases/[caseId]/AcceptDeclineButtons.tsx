@@ -101,7 +101,7 @@ export function AcceptDeclineButtons({ partnerId, caseId }: AcceptDeclineButtons
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             placeholder="Informe o motivo da recusa (mínimo 5 caracteres)…"
-            className="w-full rounded-sm border border-white/10 bg-white/5 px-3 py-2 text-sm text-bone-100 placeholder-bone-400 outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full rounded-sm border border-white/10 bg-white/5 px-3 py-2 text-base md:text-sm text-bone-100 placeholder-bone-400 outline-none focus:ring-2 focus:ring-green-400"
           />
           <p className="text-xs text-bone-400">{reason.trim().length} / 5 caracteres mínimos</p>
           <div className="flex gap-2">

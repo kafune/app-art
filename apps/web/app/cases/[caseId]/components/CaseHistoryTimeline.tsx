@@ -28,9 +28,12 @@ function formatDate(iso: string): string {
 export function CaseHistoryTimeline({
   caseId,
   refreshKey,
+  onLoaded,
 }: {
   caseId: string
   refreshKey?: string
+  /** Sinaliza ao pai que o primeiro fetch terminou (para revelar o rail de uma vez). */
+  onLoaded?: () => void
 }) {
   const [transitions, setTransitions] = useState<TransitionRow[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -46,10 +49,12 @@ export function CaseHistoryTimeline({
       .catch(() => {})
       .finally(() => {
         if (active) setLoaded(true)
+        onLoaded?.()
       })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, refreshKey])
 
   if (!loaded || transitions.length === 0) return null

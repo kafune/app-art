@@ -369,7 +369,7 @@ export default async function SindicoDashboardPage() {
                   <div
                     key={i}
                     title={`${v} caso${v !== 1 ? "s" : ""}`}
-                    className="flex-1 rounded-t-sm transition-all"
+                    className="flex-1 rounded-t-sm transition-[height]"
                     style={{
                       height: `${Math.max((v / maxBar) * 100, v > 0 ? 4 : 0)}%`,
                       minHeight: v > 0 ? 3 : 0,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import type { PendingAction, ActionUrgency } from "@/modules/case-intake/application/GetPendingActionsUseCase"
 
@@ -49,12 +49,19 @@ export function PendingActionsWidget() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  // Evita re-render (flicker) nos ticks do polling em que nada mudou
+  const lastSnapshotRef = useRef("")
+
   const fetchActions = useCallback(async () => {
     try {
       const res = await fetch("/api/v1/me/pending-actions")
       if (!res.ok) throw new Error("fetch failed")
       const data = await res.json()
-      setActions(data.actions ?? [])
+      const snap = JSON.stringify(data.actions ?? [])
+      if (snap !== lastSnapshotRef.current) {
+        lastSnapshotRef.current = snap
+        setActions(data.actions ?? [])
+      }
       setError(false)
     } catch {
       setError(true)
@@ -82,15 +89,15 @@ export function PendingActionsWidget() {
   }, [actions.length])
 
   if (loading) {
+    // Altura próxima dos dois estados reais (vazio ≈ 1 ação) para o conteúdo
+    // trocar sem salto de layout perceptível.
     return (
       <div className="mb-6 rounded-md bg-surface shadow-hair">
         <div className="flex items-center gap-2 border-b border-divider px-5 py-4">
           <span className="h-4 w-32 animate-pulse rounded bg-bone-200" />
         </div>
-        <div className="px-5 py-4 space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-14 animate-pulse rounded bg-bone-100" />
-          ))}
+        <div className="px-5 py-4">
+          <div className="h-14 animate-pulse rounded bg-bone-100" />
         </div>
       </div>
     )

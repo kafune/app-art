@@ -128,7 +128,7 @@ export function DocumentViewer({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-400 transition-colors duration-150 hover:bg-bone-200 hover:text-ink-900"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-400 transition-colors duration-150 hover:bg-bone-200 hover:text-ink-900 max-md:h-11 max-md:w-11"
             aria-label="Fechar visualizador"
           >
             <Icon name="close" size={14} />

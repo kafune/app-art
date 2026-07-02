@@ -123,7 +123,7 @@ export function ReviewDecisionForm({
           onChange={(e) => setNotes(e.target.value)}
           rows={4}
           placeholder="Descreva a justificativa para a decisão..."
-          className="w-full rounded-sm border border-line-strong bg-surface px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-300 focus:border-green-700 focus:outline-none focus:ring-1 focus:ring-green-700"
+          className="w-full rounded-sm border border-line-strong bg-surface px-3 py-2.5 text-base md:text-sm text-ink-900 placeholder:text-ink-300 focus:border-green-700 focus:outline-none focus:ring-1 focus:ring-green-700"
           data-testid="review-notes"
         />
         <p className="font-mono text-xs text-ink-400">

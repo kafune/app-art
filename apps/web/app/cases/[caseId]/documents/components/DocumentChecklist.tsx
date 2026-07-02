@@ -105,17 +105,25 @@ export function DocumentChecklist({ requiresART, uploadedByType, pendingCorrecti
                 isInvalidCorrection && "bg-iron-50",
               )}
             >
-              {/* Status icon */}
-              <span
-                className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                  cfg.bg,
-                  docStatus === "PROCESSING" || docStatus === "PENDING" ? "animate-pulse" : "",
-                )}
-                aria-hidden="true"
-              >
-                <Icon name={cfg.icon} size={12} className={cfg.color} />
-              </span>
+              {/* Status icon — spinner discreto durante o processamento */}
+              {docStatus === "PROCESSING" || docStatus === "PENDING" ? (
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-azulejo-100 border-t-azulejo-600" />
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                    cfg.bg,
+                  )}
+                  aria-hidden="true"
+                >
+                  <Icon name={cfg.icon} size={12} className={cfg.color} />
+                </span>
+              )}
 
               {/* Label + status */}
               <div className="min-w-0 flex-1">

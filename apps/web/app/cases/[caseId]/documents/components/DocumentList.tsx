@@ -89,12 +89,9 @@ function DocumentRow({
     >
       {/* Main row */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 md:gap-x-3.5 md:px-5">
-        {/* File type icon with optional pulse */}
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg} ${
-            isProcessing ? "animate-pulse" : ""
-          }`}
-        >
+        {/* File type icon — estático; o processamento é indicado pelo spinner
+            junto ao badge (pulse permanente em elemento grande distrai) */}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
           <Icon name="doc" size={18} className={iconCfg.colorClass} />
         </div>
 
@@ -120,8 +117,14 @@ function DocumentRow({
           )}
         </div>
 
-        {/* Status badge — pulse wrapper for PENDING/PROCESSING */}
-        <span className={isProcessing ? "animate-pulse" : ""}>
+        {/* Status badge — spinner discreto enquanto a IA processa */}
+        <span className="flex items-center gap-1.5">
+          {isProcessing && (
+            <span
+              className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-azulejo-100 border-t-azulejo-600"
+              aria-hidden="true"
+            />
+          )}
           <DocumentStatusBadge status={doc.status} />
         </span>
 
@@ -198,15 +201,28 @@ export function DocumentList({
   const [viewer, setViewer] = useState<ViewerState>(DEFAULT_VIEWER)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Evita re-render (flicker) nos ticks do polling em que nada mudou
+  const lastSnapshotRef = useRef("")
+
   const fetchDocs = useCallback(async () => {
     const res = await fetch(`/api/v1/cases/${caseId}/documents`, { cache: "no-store" })
     if (!res.ok) return
     const body = await res.json()
-    setDocuments(body.documents ?? [])
+    const snap = JSON.stringify(body.documents ?? [])
+    if (snap !== lastSnapshotRef.current) {
+      lastSnapshotRef.current = snap
+      setDocuments(body.documents ?? [])
+    }
   }, [caseId])
 
   useEffect(() => {
-    setDocuments(initialDocuments)
+    // Reseed vindo do server (router.refresh): só aplica se realmente mudou,
+    // para não "voltar no tempo" sobre a lista recém-buscada pelo polling.
+    const snap = JSON.stringify(initialDocuments)
+    if (snap !== lastSnapshotRef.current) {
+      lastSnapshotRef.current = snap
+      setDocuments(initialDocuments)
+    }
   }, [initialDocuments])
 
   useEffect(() => {
