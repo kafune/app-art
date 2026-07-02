@@ -44,12 +44,12 @@ type CaseDetail = {
     identifier: string
     block: string | null
     floor: string | null
-  }
+  } | null
   client: {
     id: string
     name: string
     email: string
-  }
+  } | null
   createdAt: string
 }
 
@@ -220,13 +220,15 @@ export default function SindicoCaseDetailPage() {
               <div>
                 <p className="font-mono text-xs text-ink-400 mb-1">{caseData.protocol}</p>
                 <h2 className="text-base font-semibold text-ink-900">
-                  Unidade {caseData.unit.identifier}
-                  {caseData.unit.block && ` — Bloco ${caseData.unit.block}`}
-                  {caseData.unit.floor && ` — ${caseData.unit.floor}º andar`}
+                  Unidade {caseData.unit?.identifier ?? "—"}
+                  {caseData.unit?.block && ` — Bloco ${caseData.unit.block}`}
+                  {caseData.unit?.floor && ` — ${caseData.unit.floor}º andar`}
                 </h2>
                 <p className="mt-1 text-sm text-ink-600">
-                  Morador: <span className="font-medium">{caseData.client.name}</span>{" "}
-                  <span className="text-ink-400">({caseData.client.email})</span>
+                  Morador: <span className="font-medium">{caseData.client?.name ?? "—"}</span>{" "}
+                  {caseData.client?.email && (
+                    <span className="text-ink-400">({caseData.client.email})</span>
+                  )}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-400">
                   Aberto em{" "}

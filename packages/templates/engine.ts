@@ -33,17 +33,41 @@ const DISCLAIMER =
   "responsabilidade técnica pela obra é exclusiva do profissional responsável devidamente " +
   "registrado no CREA/CAU.*\n"
 
-const templatesDir = path.dirname(fileURLToPath(import.meta.url))
+// Quando o pacote é transpilado pelo Next (webpack), import.meta.url vira o
+// caminho do fonte NA MÁQUINA DE BUILD — que pode não existir no runtime
+// (ex.: imagem Docker que só recebe o output standalone). Por isso testamos
+// caminhos candidatos em ordem, do mais específico ao mais genérico.
+const bakedDir = path.dirname(fileURLToPath(import.meta.url))
+const candidateDirs = [
+  bakedDir,
+  path.join(process.cwd(), "packages", "templates"),
+  path.join(process.cwd(), "..", "..", "packages", "templates"),
+]
+
 const VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g
 const cache = new Map<TemplateId, string>()
 
 function loadTemplate(templateId: TemplateId): string {
   const cached = cache.get(templateId)
   if (cached !== undefined) return cached
-  const filePath = path.join(templatesDir, `${templateId}.md`)
-  const content = readFileSync(filePath, "utf8")
-  cache.set(templateId, content)
-  return content
+
+  const tried: string[] = []
+  for (const dir of candidateDirs) {
+    const filePath = path.join(dir, `${templateId}.md`)
+    tried.push(filePath)
+    try {
+      const content = readFileSync(filePath, "utf8")
+      cache.set(templateId, content)
+      return content
+    } catch {
+      // tenta o próximo candidato
+    }
+  }
+
+  throw new Error(
+    `Template "${templateId}.md" não encontrado. Caminhos tentados: ${tried.join(", ")}. ` +
+      "Em produção, garanta que packages/templates/*.md esteja presente na imagem/runtime.",
+  )
 }
 
 function resolveValue(value: string | number | boolean | undefined): string {
