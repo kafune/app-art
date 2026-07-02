@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
@@ -159,6 +159,20 @@ export default function CaseDetailPage() {
 
   // Triggered rules "Ver mais"
   const [showAllRules, setShowAllRules] = useState(false)
+
+  // Revelação agregada do rail: os 4 cards assíncronos (proposta, vistorias,
+  // relatórios, histórico) só aparecem juntos, quando todos resolveram — em
+  // vez de "pipocar" um por vez empurrando o layout.
+  const [railLoaded, setRailLoaded] = useState<Set<string>>(() => new Set())
+  const markRailLoaded = useCallback((key: string) => {
+    setRailLoaded((prev) => {
+      if (prev.has(key)) return prev
+      const next = new Set(prev)
+      next.add(key)
+      return next
+    })
+  }, [])
+  const railReady = railLoaded.size >= 4
 
   // Review state
   const [reviewScore, setReviewScore] = useState(0)
@@ -381,28 +395,41 @@ export default function CaseDetailPage() {
         </div>
       )}
 
-      {/* Proposta comercial — aparece quando há oferta para o caso */}
-      <div id="proposta-comercial" className="mt-4 empty:hidden">
-        <CommercialOfferCard
-          caseId={caseId}
-          isClient={session?.user?.role === "CLIENT"}
-          onAccepted={reload}
-        />
-      </div>
+      {/* Skeleton único enquanto os cards assíncronos do rail carregam —
+          reserva espaço e evita 4 saltos de layout em sequência */}
+      {!railReady && (
+        <div className="mt-4 space-y-3" aria-hidden="true">
+          <div className="h-24 animate-pulse rounded-md bg-bone-100" />
+          <div className="h-14 animate-pulse rounded-md bg-bone-100" />
+        </div>
+      )}
 
-      {/* Vistorias — aparece quando há vistorias no caso */}
-      <div className="mt-4 empty:hidden">
-        <InspectionsPanel caseId={caseId} />
-      </div>
+      <div className={railReady ? "contents" : "hidden"}>
+        {/* Proposta comercial — aparece quando há oferta para o caso */}
+        <div id="proposta-comercial" className="mt-4 empty:hidden">
+          <CommercialOfferCard
+            caseId={caseId}
+            isClient={session?.user?.role === "CLIENT"}
+            onAccepted={reload}
+            onLoaded={() => markRailLoaded("offer")}
+          />
+        </div>
 
-      {/* Relatórios & documentos gerados — com geração da análise completa
-          em PDF assim que o caso está classificado */}
-      <div className="mt-4 empty:hidden">
-        <ReportsSection
-          caseId={caseId}
-          refreshKey={data.status}
-          allowGenerate={data.riskLevel != null}
-        />
+        {/* Vistorias — aparece quando há vistorias no caso */}
+        <div className="mt-4 empty:hidden">
+          <InspectionsPanel caseId={caseId} onLoaded={() => markRailLoaded("inspections")} />
+        </div>
+
+        {/* Relatórios & documentos gerados — com geração da análise completa
+            em PDF assim que o caso está classificado */}
+        <div className="mt-4 empty:hidden">
+          <ReportsSection
+            caseId={caseId}
+            refreshKey={data.status}
+            allowGenerate={data.riskLevel != null}
+            onLoaded={() => markRailLoaded("reports")}
+          />
+        </div>
       </div>
 
       {/* ART */}
@@ -464,8 +491,14 @@ export default function CaseDetailPage() {
         />
       </div>
 
-      {/* Histórico real de transições (CaseTransitionLog) */}
-      <CaseHistoryTimeline caseId={caseId} refreshKey={data.status} />
+      {/* Histórico real de transições (CaseTransitionLog) — revela junto com o rail */}
+      <div className={railReady ? "block" : "hidden"}>
+        <CaseHistoryTimeline
+          caseId={caseId}
+          refreshKey={data.status}
+          onLoaded={() => markRailLoaded("history")}
+        />
+      </div>
 
       {/* ART/RRT disclaimer — apenas uma vez, no final, discreto */}
       <div className="mt-5 flex items-start gap-2 rounded-md bg-bone-100 px-3 py-2.5">

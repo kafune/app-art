@@ -89,15 +89,15 @@ export function PendingActionsWidget() {
   }, [actions.length])
 
   if (loading) {
+    // Altura próxima dos dois estados reais (vazio ≈ 1 ação) para o conteúdo
+    // trocar sem salto de layout perceptível.
     return (
       <div className="mb-6 rounded-md bg-surface shadow-hair">
         <div className="flex items-center gap-2 border-b border-divider px-5 py-4">
           <span className="h-4 w-32 animate-pulse rounded bg-bone-200" />
         </div>
-        <div className="px-5 py-4 space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-14 animate-pulse rounded bg-bone-100" />
-          ))}
+        <div className="px-5 py-4">
+          <div className="h-14 animate-pulse rounded bg-bone-100" />
         </div>
       </div>
     )

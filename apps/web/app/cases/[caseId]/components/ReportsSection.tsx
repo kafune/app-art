@@ -38,10 +38,13 @@ export function ReportsSection({
   caseId,
   refreshKey,
   allowGenerate = false,
+  onLoaded,
 }: {
   caseId: string
   refreshKey?: string
   allowGenerate?: boolean
+  /** Sinaliza ao pai que o primeiro fetch terminou (para revelar o rail de uma vez). */
+  onLoaded?: () => void
 }) {
   const [reports, setReports] = useState<ReportRow[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -62,10 +65,12 @@ export function ReportsSection({
     let active = true
     fetchReports().finally(() => {
       if (active) setLoaded(true)
+      onLoaded?.()
     })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchReports, refreshKey])
 
   async function generateFullAnalysis() {

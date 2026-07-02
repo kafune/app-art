@@ -103,7 +103,14 @@ function InspectionPhotos({ caseId, inspectionId }: { caseId: string; inspection
  * Painel de vistorias do caso (read-only para o morador): tipo, data, status,
  * notas e fotos. Não aparece se não houver vistoria.
  */
-export function InspectionsPanel({ caseId }: { caseId: string }) {
+export function InspectionsPanel({
+  caseId,
+  onLoaded,
+}: {
+  caseId: string
+  /** Sinaliza ao pai que o primeiro fetch terminou (para revelar o rail de uma vez). */
+  onLoaded?: () => void
+}) {
   const [inspections, setInspections] = useState<InspectionRow[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -117,10 +124,12 @@ export function InspectionsPanel({ caseId }: { caseId: string }) {
       .catch(() => {})
       .finally(() => {
         if (active) setLoaded(true)
+        onLoaded?.()
       })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId])
 
   if (!loaded || inspections.length === 0) return null

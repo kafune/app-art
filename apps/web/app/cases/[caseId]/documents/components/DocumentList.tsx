@@ -89,12 +89,9 @@ function DocumentRow({
     >
       {/* Main row */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 md:gap-x-3.5 md:px-5">
-        {/* File type icon with optional pulse */}
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg} ${
-            isProcessing ? "animate-pulse" : ""
-          }`}
-        >
+        {/* File type icon — estático; o processamento é indicado pelo spinner
+            junto ao badge (pulse permanente em elemento grande distrai) */}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
           <Icon name="doc" size={18} className={iconCfg.colorClass} />
         </div>
 
@@ -120,8 +117,14 @@ function DocumentRow({
           )}
         </div>
 
-        {/* Status badge — pulse wrapper for PENDING/PROCESSING */}
-        <span className={isProcessing ? "animate-pulse" : ""}>
+        {/* Status badge — spinner discreto enquanto a IA processa */}
+        <span className="flex items-center gap-1.5">
+          {isProcessing && (
+            <span
+              className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-azulejo-100 border-t-azulejo-600"
+              aria-hidden="true"
+            />
+          )}
           <DocumentStatusBadge status={doc.status} />
         </span>
 
