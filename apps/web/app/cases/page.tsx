@@ -56,7 +56,7 @@ export default function CasesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [cases, setCases] = useState<CaseRow[]>([])
-  const [units, setUnits] = useState<Array<{ id: string; identifier: string; condominium: { name: string } }>>([])
+  const [units, setUnits] = useState<Array<{ id: string; identifier: string; block: string | null; condominium: { name: string } }>>([])
   const [creating, setCreating] = useState(false)
   const [selectedUnit, setSelectedUnit] = useState("")
   const [search, setSearch] = useState("")
@@ -143,7 +143,7 @@ export default function CasesPage() {
               )}
               {units.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.condominium.name} — Un. {u.identifier}
+                  {u.condominium.name} — {u.block ? `Bl. ${u.block} · ` : ""}Un. {u.identifier}
                 </option>
               ))}
             </select>

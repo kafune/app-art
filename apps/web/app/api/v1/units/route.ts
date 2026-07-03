@@ -11,11 +11,12 @@ export async function GET() {
       select: {
         id: true,
         identifier: true,
+        block: true,
         floor: true,
         ownerEmail: true,
         condominium: { select: { id: true, name: true } },
       },
-      orderBy: { identifier: "asc" },
+      orderBy: [{ block: "asc" }, { identifier: "asc" }],
     })
     const filtered =
       user.role === "CLIENT"

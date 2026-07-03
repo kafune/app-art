@@ -10,6 +10,7 @@ const notFound = () => NextResponse.json({ error: "NOT_FOUND" }, { status: 404 }
 
 const UpdateUnitSchema = z.object({
   identifier: z.string().min(1).max(40).optional(),
+  block: z.string().max(60).nullable().optional(),
   floor: z.string().max(20).nullable().optional(),
   ownerName: z.string().max(160).nullable().optional(),
   ownerEmail: z.string().email().nullable().optional().or(z.literal("")),
@@ -51,6 +52,7 @@ export async function PATCH(req: NextRequest, ctx: Params) {
       where: { id: existing.id },
       data: {
         identifier: body.identifier?.trim(),
+        block: body.block === undefined ? undefined : body.block?.trim() || null,
         floor: body.floor === undefined ? undefined : body.floor?.trim() || null,
         ownerName: body.ownerName === undefined ? undefined : body.ownerName?.trim() || null,
         ownerEmail:
@@ -64,6 +66,7 @@ export async function PATCH(req: NextRequest, ctx: Params) {
       unit: {
         id: updated.id,
         identifier: updated.identifier,
+        block: updated.block,
         floor: updated.floor,
         ownerName: updated.ownerName,
         ownerEmail: updated.ownerEmail,

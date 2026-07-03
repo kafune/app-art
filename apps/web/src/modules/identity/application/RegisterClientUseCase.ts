@@ -25,8 +25,12 @@ export interface RegisteredClient {
 /**
  * Autocadastro de morador (role CLIENT) a partir do link/QR do condomínio.
  * Regras: condomínio e tenant ativos, e-mail único. O `tenantId` é derivado
- * do condomínio. A unidade é localizada por torre/bloco + identificador; se
- * não existir, é criada com o morador como contato.
+ * do condomínio. A unidade é localizada por torre/bloco + identificador:
+ * - não existe → criada com o morador como contato;
+ * - existe sem morador vinculado (cadastro prévio do síndico/admin) → o
+ *   morador a reivindica (ownerEmail/ownerName preenchidos);
+ * - existe vinculada a outro e-mail → cadastro bloqueado, morador deve
+ *   procurar o síndico.
  */
 export class RegisterClientUseCase {
   async execute(input: RegisterClientInput): Promise<RegisteredClient> {
@@ -48,6 +52,10 @@ export class RegisterClientUseCase {
     const passwordHash = await hashPassword(input.password)
 
     // Unit + User criados atomicamente: falha parcial não deixa Unit órfã.
+    // Rótulo da unidade no formato canônico do banco (não o digitado pelo morador).
+    let unitBlock = block
+    let unitIdentifier = identifier
+
     const user = await prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({ where: { email } })
       if (existing) {
@@ -55,7 +63,11 @@ export class RegisterClientUseCase {
       }
 
       const unit = await tx.unit.findFirst({
-        where: { condominiumId: condominium.id, block, identifier },
+        where: {
+          condominiumId: condominium.id,
+          identifier: { equals: identifier, mode: "insensitive" },
+          ...(block ? { block: { equals: block, mode: "insensitive" } } : { block: null }),
+        },
       })
       if (!unit) {
         await tx.unit.create({
@@ -67,6 +79,23 @@ export class RegisterClientUseCase {
             ownerEmail: email,
           },
         })
+      } else if (!unit.ownerEmail) {
+        // Unidade pré-cadastrada pelo síndico/admin sem morador: reivindica.
+        await tx.unit.update({
+          where: { id: unit.id },
+          data: {
+            ownerEmail: email,
+            ownerName: unit.ownerName ?? input.name.trim(),
+          },
+        })
+      } else if (unit.ownerEmail.toLowerCase() !== email) {
+        throw new ValidationError(
+          "Esta unidade já está vinculada a outro morador. Procure o síndico do condomínio para atualizar o cadastro.",
+        )
+      }
+      if (unit) {
+        unitBlock = unit.block
+        unitIdentifier = unit.identifier
       }
 
       return tx.user.create({
@@ -94,7 +123,7 @@ export class RegisterClientUseCase {
       ...user,
       tenantId: condominium.tenantId,
       condominiumId: condominium.id,
-      unitLabel: block ? `${block} / ${identifier}` : identifier,
+      unitLabel: unitBlock ? `${unitBlock} / ${unitIdentifier}` : unitIdentifier,
     }
   }
 }

@@ -30,6 +30,7 @@ export interface Tenant {
 export interface Unit {
   id: string
   identifier: string
+  block: string | null
   floor: string | null
   ownerName: string | null
   ownerEmail: string | null
