@@ -4,11 +4,13 @@ import type { SessionUser } from "@/infrastructure/auth/getSessionUser"
 
 const findUniqueCase = vi.fn()
 const findUniquePartner = vi.fn()
+const findFirstTransition = vi.fn()
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
     reformCase: { findUnique: (...a: unknown[]) => findUniqueCase(...a) },
     partner: { findUnique: (...a: unknown[]) => findUniquePartner(...a) },
+    caseTransitionLog: { findFirst: (...a: unknown[]) => findFirstTransition(...a) },
   },
 }))
 
@@ -21,6 +23,7 @@ const CASE = {
   condominiumId: "cond-1",
   unitId: "unit-1",
   partnerId: "partner-1",
+  status: "AWAITING_DOCUMENTS",
 }
 
 function user(partial: Partial<SessionUser>): SessionUser {
@@ -38,7 +41,9 @@ function user(partial: Partial<SessionUser>): SessionUser {
 beforeEach(() => {
   findUniqueCase.mockReset()
   findUniquePartner.mockReset()
+  findFirstTransition.mockReset()
   findUniqueCase.mockResolvedValue(CASE)
+  findFirstTransition.mockResolvedValue(null)
 })
 
 describe("requireRole", () => {
@@ -76,13 +81,41 @@ describe("assertCaseAccess", () => {
   })
 
   it("PARTNER acessa só casos atribuídos ao seu Partner", async () => {
-    findUniquePartner.mockResolvedValue({ id: "partner-1" })
+    findUniquePartner.mockResolvedValue({ id: "partner-1", active: true, tenantId: "tenant-1" })
     await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).resolves.toBeTruthy()
 
-    findUniquePartner.mockResolvedValue({ id: "partner-2" })
+    findUniquePartner.mockResolvedValue({ id: "partner-2", active: true, tenantId: "tenant-1" })
     await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).rejects.toBeInstanceOf(ForbiddenError)
 
     findUniquePartner.mockResolvedValue(null)
     await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
+  it("PARTNER revisor técnico acessa caso em HUMAN_REVIEW_REQUIRED não atribuído", async () => {
+    findUniqueCase.mockResolvedValue({ ...CASE, partnerId: null, status: "HUMAN_REVIEW_REQUIRED" })
+    findUniquePartner.mockResolvedValue({ id: "partner-2", active: true, tenantId: "tenant-1" })
+    await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).resolves.toBeTruthy()
+  })
+
+  it("PARTNER inativo não acessa a fila de revisão", async () => {
+    findUniqueCase.mockResolvedValue({ ...CASE, partnerId: null, status: "HUMAN_REVIEW_REQUIRED" })
+    findUniquePartner.mockResolvedValue({ id: "partner-2", active: false, tenantId: "tenant-1" })
+    await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
+  it("PARTNER não acessa caso não atribuído fora de revisão humana", async () => {
+    findUniqueCase.mockResolvedValue({ ...CASE, partnerId: null, status: "AWAITING_DOCUMENTS" })
+    findUniquePartner.mockResolvedValue({ id: "partner-2", active: true, tenantId: "tenant-1" })
+    await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
+  it("PARTNER que já emitiu parecer mantém acesso de consulta após a transição", async () => {
+    findUniqueCase.mockResolvedValue({ ...CASE, partnerId: null, status: "PENDING_CORRECTIONS" })
+    findUniquePartner.mockResolvedValue({ id: "partner-2", active: true, tenantId: "tenant-1" })
+    findFirstTransition.mockResolvedValue({ id: "t1" })
+    await expect(assertCaseAccess(user({ role: "PARTNER", id: "pu" }), "case-1")).resolves.toBeTruthy()
+    expect(findFirstTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ triggeredBy: "reviewer:pu" }) }),
+    )
   })
 })

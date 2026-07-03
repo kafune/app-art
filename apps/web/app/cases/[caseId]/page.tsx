@@ -109,11 +109,12 @@ const TIMELINE_STEPS: Array<{ title: string; family: Family }> = [
 
 // ─── Static specialist metadata (display only — routing is 100% automatic) ──
 const SPECIALIST_META: Record<string, { name: string; color: string }> = {
-  triage:   { name: "Triagem",    color: "green"   },
-  document: { name: "Documentos", color: "azulejo" },
-  report:   { name: "Relatórios", color: "ochre"   },
-  materials:{ name: "Materiais",  color: "iron"    },
-  process:  { name: "Processo",   color: "violet"  },
+  triage:   { name: "Triagem",         color: "green"   },
+  document: { name: "Documentos",      color: "azulejo" },
+  report:   { name: "Relatórios",      color: "ochre"   },
+  materials:{ name: "Materiais",       color: "iron"    },
+  process:  { name: "Processo",        color: "violet"  },
+  review:   { name: "Parecer técnico", color: "iron"    },
 }
 
 // ─── Componente principal ────────────────────────────────────────────────────
@@ -588,7 +589,11 @@ export default function CaseDetailPage() {
                 />
               )}
               <AIMessage
-                disclaimer="Esta análise é assistiva. O Rule Engine valida deterministicamente e casos HIGH/CRITICAL passam por revisão humana."
+                disclaimer={
+                  msgSpecialistId === "review"
+                    ? "Parecer emitido por revisor técnico habilitado — não é conteúdo gerado por IA."
+                    : "Esta análise é assistiva. O Rule Engine valida deterministicamente e casos HIGH/CRITICAL passam por revisão humana."
+                }
               >
                 {cleanContent || "(coletando dados…)"}
               </AIMessage>

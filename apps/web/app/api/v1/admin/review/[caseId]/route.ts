@@ -7,6 +7,7 @@ import { prisma } from "@/infrastructure/database/prisma"
 import { CaseStateMachine } from "@/modules/case-intake/domain/entities/CaseStateMachine"
 import { NotFoundError, BusinessRuleViolationError } from "@/shared/errors/DomainError"
 import { getCaseNotificationService } from "@/modules/case-intake/application/CaseNotificationService"
+import { NotifyUserUseCase } from "@/modules/notifications/application/NotifyUserUseCase"
 
 // PARTNER participa como revisor técnico (engenheiro/arquiteto habilitado) —
 // validado adiante contra um registro Partner ativo do próprio usuário.
@@ -22,6 +23,13 @@ const DECISION_STATUS_MAP: Record<string, CaseStatus> = {
   approve_with_conditions: "RELEASED_WITH_CONDITIONS",
   reject: "ARCHIVED",
   request_corrections: "PENDING_CORRECTIONS",
+}
+
+const DECISION_LABEL_PT: Record<string, string> = {
+  approve: "Aprovado — liberado para encaminhamento",
+  approve_with_conditions: "Aprovado com condições",
+  reject: "Rejeitado",
+  request_corrections: "Correções solicitadas",
 }
 
 export async function POST(req: NextRequest, ctx: { params: { caseId: string } }) {
@@ -74,6 +82,8 @@ export async function POST(req: NextRequest, ctx: { params: { caseId: string } }
       reason: body.notes,
     })
 
+    const decisionLabel = DECISION_LABEL_PT[body.decision] ?? body.decision
+
     // Persist everything in a transaction
     const updatedCase = await prisma.$transaction(async (tx) => {
       const updated = await tx.reformCase.update({
@@ -91,6 +101,17 @@ export async function POST(req: NextRequest, ctx: { params: { caseId: string } }
         },
       })
 
+      // O parecer também entra no chat do caso — é onde o morador conversa e
+      // espera respostas; sem isto o texto ficava enterrado no histórico.
+      await tx.chatMessage.create({
+        data: {
+          caseId,
+          role: "ASSISTANT",
+          content: `Parecer técnico — ${decisionLabel}\n\n${body.notes}\n\n— ${user.name}, revisor(a) técnico(a)`,
+          metadata: { specialistId: "review", reviewDecision: body.decision, reviewerName: user.name },
+        },
+      })
+
       await tx.auditLog.create({
         data: {
           tenantId: user.tenantId,
@@ -105,6 +126,18 @@ export async function POST(req: NextRequest, ctx: { params: { caseId: string } }
 
       return updated
     })
+
+    // Notificação in-app/push ao morador com o TEXTO do parecer (a notificação
+    // genérica de transição não carrega a justificativa) — fire-and-forget.
+    new NotifyUserUseCase(undefined, null)
+      .execute({
+        userId: reformCase.clientId,
+        tenantId: user.tenantId,
+        caseId,
+        title: `Parecer técnico — ${reformCase.protocol}`,
+        body: `${decisionLabel}: ${body.notes.slice(0, 300)}`,
+      })
+      .catch(() => {})
 
     // Notificação por e-mail sobre a decisão de revisão — fire-and-forget
     getCaseNotificationService()
