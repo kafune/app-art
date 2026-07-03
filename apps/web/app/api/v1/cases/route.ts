@@ -52,13 +52,21 @@ export async function GET(req: NextRequest) {
       // Síndico vê só os casos do seu condomínio
       filters = { condominiumId: user.condominiumId ?? undefined, search }
     } else if (user.role === "PARTNER") {
-      // Parceiro vê só os casos atribuídos a ele
+      // Parceiro vê os casos atribuídos a ele + todos os casos dos
+      // condomínios onde ele é o parceiro técnico fixo (acompanhamento).
       const partner = await prisma.partner.findUnique({
         where: { userId: user.id },
         select: { id: true },
       })
       if (!partner) return NextResponse.json({ cases: [] })
-      filters = { partnerId: partner.id, search }
+
+      const cases = await repo.listByTenant(user.tenantId, {
+        partnerScopeId: partner.id,
+        search,
+      })
+      return NextResponse.json({
+        cases: cases.map((c) => ({ ...c, assignedToMe: c.partnerId === partner.id })),
+      })
     } else {
       // ADMIN, MANAGER, SUPER_ADMIN: todos os casos do tenant
       filters = search ? { search } : undefined

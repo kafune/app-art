@@ -49,7 +49,7 @@ export default async function PartnerDashboardPage() {
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const [activeCases, inspectionsToday, artPending, concludedThisMonth] = await Promise.all([
+  const [activeCases, inspectionsToday, artPending, concludedThisMonth, myCondominiums] = await Promise.all([
     prisma.reformCase.count({
       where: {
         partnerId: partner.id,
@@ -79,6 +79,24 @@ export default async function PartnerDashboardPage() {
         status: "CONCLUDED",
         updatedAt: { gte: startOfMonth },
       },
+    }),
+    // Condomínios onde este parceiro é o responsável técnico fixo
+    prisma.condominium.findMany({
+      where: { partnerId: partner.id, tenantId: user.tenantId, active: true },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        state: true,
+        _count: {
+          select: {
+            cases: {
+              where: { status: { notIn: ["CONCLUDED", "ARCHIVED"] } },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
     }),
   ])
 
@@ -155,6 +173,41 @@ export default async function PartnerDashboardPage() {
             </Card>
           ))}
         </div>
+
+        {/* Condomínios sob responsabilidade técnica fixa */}
+        {myCondominiums.length > 0 && (
+          <div className="mt-6">
+            <Card padded={false} className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <Eyebrow>Meus condomínios (parceiro fixo)</Eyebrow>
+                <Icon name="shield" size={18} className="text-green-600" />
+              </div>
+              <div className="divide-y divide-divider">
+                {myCondominiums.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-ink-900">{c.name}</p>
+                      <p className="text-xs text-ink-500">
+                        {c.city} · {c.state}
+                      </p>
+                    </div>
+                    <span className="font-mono text-sm tabular-nums text-ink-700">
+                      {c._count.cases} caso{c._count.cases !== 1 ? "s" : ""} em andamento
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-ink-400">
+                Todos os casos destes condomínios aparecem em{" "}
+                <span className="font-medium text-ink-600">Meus Casos → Condomínio</span>, mesmo
+                antes de serem atribuídos a você.
+              </p>
+            </Card>
+          </div>
+        )}
 
         {/* Rating card */}
         <div className="mt-6">

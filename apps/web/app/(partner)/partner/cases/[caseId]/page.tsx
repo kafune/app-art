@@ -99,11 +99,13 @@ export default async function PartnerCaseDetailPage({
 
   if (!partner) redirect("/partner/cases")
 
+  // Casos atribuídos ao parceiro + casos de condomínios onde ele é o
+  // parceiro técnico fixo (acompanhamento, sem ações de aceite).
   const reformCase = await prisma.reformCase.findFirst({
     where: {
       id: params.caseId,
-      partnerId: partner.id,
       tenantId: user.tenantId,
+      OR: [{ partnerId: partner.id }, { condominium: { partnerId: partner.id } }],
     },
     include: {
       condominium: { select: { name: true, address: true, city: true, state: true } },
@@ -254,8 +256,8 @@ export default async function PartnerCaseDetailPage({
           </div>
         </Card>
 
-        {/* Ação necessária: aceitar/recusar */}
-        {reformCase.status === CaseStatus.ASSIGNED_TO_PARTNER && (
+        {/* Ação necessária: aceitar/recusar — só para o parceiro atribuído */}
+        {reformCase.status === CaseStatus.ASSIGNED_TO_PARTNER && reformCase.partnerId === partner.id && (
           <div className="relative overflow-hidden rounded-lg bg-ink-900 p-6 text-bone-50">
             {/* Decorative rings */}
             <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-72 opacity-10">

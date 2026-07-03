@@ -1,4 +1,4 @@
-import type { ReformCase } from "@reformai/database"
+import type { Prisma, ReformCase } from "@reformai/database"
 import { prisma } from "@/infrastructure/database/prisma"
 import { TenantIsolationError } from "@/shared/errors/DomainError"
 import type {
@@ -29,26 +29,47 @@ export class PrismaReformCaseRepository implements ReformCaseRepository {
 
   async listByTenant(
     tenantId: string,
-    filters?: { clientId?: string; condominiumId?: string; partnerId?: string; search?: string },
+    filters?: {
+      clientId?: string
+      condominiumId?: string
+      partnerId?: string
+      /** Casos atribuídos ao parceiro OU de condomínios onde ele é o parceiro fixo. */
+      partnerScopeId?: string
+      search?: string
+    },
   ): Promise<ReformCase[]> {
     const search = filters?.search?.trim()
+
+    // Blocos OR independentes (escopo do parceiro × busca textual) combinados
+    // via AND para não se sobrescreverem no objeto where.
+    const and: Prisma.ReformCaseWhereInput[] = []
+    if (filters?.partnerScopeId) {
+      and.push({
+        OR: [
+          { partnerId: filters.partnerScopeId },
+          { condominium: { partnerId: filters.partnerScopeId } },
+        ],
+      })
+    }
+    if (search) {
+      and.push({
+        OR: [
+          { protocol: { contains: search, mode: "insensitive" } },
+          { unit: { identifier: { contains: search, mode: "insensitive" } } },
+          { unit: { ownerName: { contains: search, mode: "insensitive" } } },
+          { client: { name: { contains: search, mode: "insensitive" } } },
+          { client: { email: { contains: search, mode: "insensitive" } } },
+        ],
+      })
+    }
+
     return prisma.reformCase.findMany({
       where: {
         tenantId,
         ...(filters?.clientId ? { clientId: filters.clientId } : {}),
         ...(filters?.condominiumId ? { condominiumId: filters.condominiumId } : {}),
         ...(filters?.partnerId ? { partnerId: filters.partnerId } : {}),
-        ...(search
-          ? {
-              OR: [
-                { protocol: { contains: search, mode: "insensitive" } },
-                { unit: { identifier: { contains: search, mode: "insensitive" } } },
-                { unit: { ownerName: { contains: search, mode: "insensitive" } } },
-                { client: { name: { contains: search, mode: "insensitive" } } },
-                { client: { email: { contains: search, mode: "insensitive" } } },
-              ],
-            }
-          : {}),
+        ...(and.length > 0 ? { AND: and } : {}),
       },
       // Relações exibidas nas listagens (síndico, parceiro, fila de revisão)
       include: {

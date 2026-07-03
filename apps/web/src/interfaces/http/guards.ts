@@ -22,11 +22,17 @@ export interface CaseAccess {
  *  - ADMIN/SUPER_ADMIN/MANAGER: qualquer caso do próprio tenant
  *  - CONDOMINIUM: apenas casos do seu condomínio
  *  - CLIENT: apenas os próprios casos
- *  - PARTNER: apenas casos atribuídos ao seu Partner
+ *  - PARTNER: apenas casos atribuídos ao seu Partner; com
+ *    `allowPreferredPartnerRead`, também casos de condomínios onde ele é o
+ *    parceiro técnico fixo (somente rotas de leitura devem passar essa flag)
  * Caso fora do tenant é tratado como inexistente (404), não 403, para não
  * vazar a existência de recursos de outros tenants.
  */
-export async function assertCaseAccess(user: SessionUser, caseId: string): Promise<CaseAccess> {
+export async function assertCaseAccess(
+  user: SessionUser,
+  caseId: string,
+  opts?: { allowPreferredPartnerRead?: boolean },
+): Promise<CaseAccess> {
   const reformCase = await prisma.reformCase.findUnique({
     where: { id: caseId },
     select: {
@@ -58,8 +64,16 @@ export async function assertCaseAccess(user: SessionUser, caseId: string): Promi
         where: { userId: user.id },
         select: { id: true },
       })
-      if (!partner || reformCase.partnerId !== partner.id) throw new ForbiddenError()
-      break
+      if (!partner) throw new ForbiddenError()
+      if (reformCase.partnerId === partner.id) break
+      if (opts?.allowPreferredPartnerRead) {
+        const preferred = await prisma.condominium.findFirst({
+          where: { id: reformCase.condominiumId, partnerId: partner.id },
+          select: { id: true },
+        })
+        if (preferred) break
+      }
+      throw new ForbiddenError()
     }
     default:
       throw new ForbiddenError()

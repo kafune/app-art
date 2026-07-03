@@ -8,7 +8,8 @@ import { prisma } from "@/infrastructure/database/prisma"
 export async function GET(_: Request, ctx: { params: { caseId: string } }) {
   try {
     const user = await requireSessionUser()
-    await assertCaseAccess(user, ctx.params.caseId)
+    // Leitura: parceiro fixo do condomínio também pode ver o caso.
+    await assertCaseAccess(user, ctx.params.caseId, { allowPreferredPartnerRead: true })
 
     const found = await prisma.reformCase.findFirst({
       where: { id: ctx.params.caseId, tenantId: user.tenantId },

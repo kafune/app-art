@@ -46,13 +46,17 @@ model Condominium {
   state                  String
   active                 Boolean  @default(true)
   requiresSyndicApproval Boolean  @default(false)
+  partnerId              String? // parceiro técnico fixo do condomínio (definido pelo síndico/admin)
   createdAt              DateTime @default(now())
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  partner     Partner?            @relation("CondominiumPreferredPartner", fields: [partnerId], references: [id])
   units       Unit[]
   cases       ReformCase[]
   policyLinks CondominiumPolicy[]
   users       User[]              @relation("CondominiumUsers")
+
+  @@index([partnerId])
 }
 
 model Unit {
@@ -394,11 +398,12 @@ model Partner {
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now())
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id])
-  user        User            @relation(fields: [userId], references: [id])
-  cases       ReformCase[]
-  inspections Inspection[]
-  reviews     PartnerReview[]
+  tenant                   Tenant          @relation(fields: [tenantId], references: [id])
+  user                     User            @relation(fields: [userId], references: [id])
+  cases                    ReformCase[]
+  inspections              Inspection[]
+  reviews                  PartnerReview[]
+  preferredForCondominiums Condominium[]   @relation("CondominiumPreferredPartner")
 }
 
 enum PartnerType {
