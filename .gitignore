@@ -29,6 +29,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Redis (dump gerado por instâncias locais durante dev/testes)
+dump.rdb
+
 # IDE
 .vscode
 .idea
