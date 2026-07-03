@@ -205,9 +205,10 @@ Todos em `apps/web/src/modules/`. **12 módulos implementados** (CLAUDE.md docum
 
 ### partner-network — ✅ implementado
 - `domain/PartnerMatcher.ts` — filtra por ativo/estado/cidade (wildcard `*`) e especialidade gás/estrutural; ordena engenheiros primeiro para HIGH/CRITICAL.
-- Use cases: `Assign`, `PartnerAccept`, `PartnerDecline` — transacionais com logs.
+- Use cases: `Assign`, `PartnerAccept`, `PartnerDecline`, `SetCondominiumPartner` — transacionais com logs.
+- **Parceiro fixo do condomínio** (`Condominium.partnerId`): síndico define em `/sindico/parceiro` (`PUT /api/v1/condominiums/:id/partner`); `AssignPartnerUseCase` o prioriza sobre o matcher (`POST /api/v1/cases/:caseId/assign-partner`, acionado pelo síndico/admin). O parceiro fixo vê todos os casos do condomínio (leitura/acompanhamento) via `GET /api/v1/cases` (`assignedToMe: false`), página de detalhe e `assertCaseAccess({ allowPreferredPartnerRead })`; ações (aceite, vistorias) continuam restritas ao parceiro atribuído. Notificações PARTNER priorizam: atribuído > fixo do condomínio > todos.
 - ✅ `AssignPartnerUseCase` corrigido: usa `scope.services` (não `servicesNeeded`).
-- Teste: `PartnerMatcher.test.ts`.
+- Testes: `PartnerMatcher.test.ts`, `AssignPartner.test.ts`, `SetCondominiumPartner.test.ts`.
 
 ### analytics — ✅ implementado (não documentado no CLAUDE.md)
 - `domain/funnel.ts` — calcula funil de casos por status/período.
@@ -373,7 +374,7 @@ Todas as páginas estão **construídas com UI real** — nenhum stub/placeholde
 | Morador (CLIENT) | `/cases`, `/cases/[caseId]` (chat SSE), `/cases/[caseId]/documents` |
 | Admin / Superadmin | `/dashboard`, `/review-queue` `+ /[caseId]`, `/condominiums`, `/partners`, `/policies`, `/audit` |
 | Superadmin | `/skills`, `/tenants`, `/users` (nav extra no layout) |
-| Síndico (CONDOMINIUM) | `/sindico/dashboard`, `/sindico/cases`, `/sindico/cadastro` (QR) |
+| Síndico (CONDOMINIUM) | `/sindico/dashboard`, `/sindico/cases`, `/sindico/parceiro` (parceiro fixo), `/sindico/cadastro` (QR) |
 | Parceiro (PARTNER) | `/partner/dashboard`, `/partner/cases` `+ /[caseId]`, `.../inspections` `+ /[id]/complete` |
 | PWA | `/offline` (fallback service worker) |
 
@@ -485,7 +486,7 @@ componentes base + 6 smart, white-label via `--rai-*`):
 | document-management | `UploadDocumentUseCase.test.ts`, `documentOrigin.test.ts` |
 | identity | `CreateInvite.test.ts`, `PasswordReset.test.ts` |
 | inspection-scheduling | `InspectionRules.test.ts` (353 linhas — maior suíte) |
-| partner-network | `PartnerMatcher.test.ts` |
+| partner-network | `PartnerMatcher.test.ts`, `AssignPartner.test.ts`, `SetCondominiumPartner.test.ts` |
 | analytics | `analytics.test.ts` |
 | infrastructure/storage | `MinIOAdapter.test.ts` |
 | infrastructure/queue | `DocumentWorker.test.ts` |

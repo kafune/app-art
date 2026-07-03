@@ -12,7 +12,7 @@ import {
   SearchInput,
 } from "@/interfaces/components/ui"
 
-type Tab = "active" | "done" | "all"
+type Tab = "active" | "watch" | "done" | "all"
 
 const ACTIVE_STATUSES = new Set([
   "ASSIGNED_TO_PARTNER",
@@ -45,6 +45,8 @@ type CaseRow = {
   condominium: { name: string } | null
   unit: { identifier: string } | null
   inspections: InspectionRow[] | null
+  /** false = caso do condomínio fixo ainda não atribuído a mim (acompanhamento). */
+  assignedToMe?: boolean
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -54,6 +56,7 @@ function formatDate(dateStr: string | null | undefined): string {
 
 const tabs: Array<{ value: Tab; label: string }> = [
   { value: "active", label: "Ativos" },
+  { value: "watch", label: "Condomínio" },
   { value: "done", label: "Concluídos" },
   { value: "all", label: "Todos" },
 ]
@@ -63,7 +66,13 @@ function PartnerCasesContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   const tab: Tab =
-    tabParam === "done" ? "done" : tabParam === "all" ? "all" : "active"
+    tabParam === "done"
+      ? "done"
+      : tabParam === "all"
+        ? "all"
+        : tabParam === "watch"
+          ? "watch"
+          : "active"
 
   const [allCases, setAllCases] = useState<CaseRow[]>([])
   const [search, setSearch] = useState("")
@@ -110,7 +119,8 @@ function PartnerCasesContent() {
 
   // Apply tab filter client-side after fetching
   const cases = allCases.filter((c) => {
-    if (tab === "active") return ACTIVE_STATUSES.has(c.status)
+    if (tab === "active") return ACTIVE_STATUSES.has(c.status) && c.assignedToMe !== false
+    if (tab === "watch") return c.assignedToMe === false
     if (tab === "done") return c.status === "CONCLUDED"
     return true
   })
@@ -207,8 +217,16 @@ function PartnerCasesContent() {
 
                     {/* Condo · Unit */}
                     <div>
-                      <div className="text-sm font-medium text-ink-900">
-                        {c.condominium?.name ?? "—"}
+                      <div className="flex items-center gap-2 text-sm font-medium text-ink-900">
+                        <span>{c.condominium?.name ?? "—"}</span>
+                        {c.assignedToMe === false && (
+                          <span
+                            className="inline-flex items-center rounded-full bg-azulejo-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-azulejo-700"
+                            title="Caso do condomínio onde você é o parceiro fixo — ainda não atribuído a você"
+                          >
+                            Acompanhamento
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-ink-500 mt-0.5">
                         Un. {c.unit?.identifier ?? "—"}

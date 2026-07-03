@@ -50,8 +50,19 @@ type CaseDetail = {
     name: string
     email: string
   } | null
+  partner: {
+    id: string
+    user: { name: string }
+  } | null
   createdAt: string
 }
+
+/** Estados a partir dos quais o síndico pode encaminhar ao parceiro técnico. */
+const ASSIGNABLE_STATUSES = new Set([
+  "ELIGIBLE_FOR_RELEASE",
+  "RELEASED_WITH_CONDITIONS",
+  "AWAITING_PAYMENT",
+])
 
 // ---------------------------------------------------------------------------
 // Page
@@ -88,6 +99,33 @@ export default function SindicoCaseDetailPage() {
   }, [caseId, router])
 
   const isPendingApproval = caseData?.status === "AWAITING_SYNDIC_APPROVAL"
+  const canAssignPartner =
+    !!caseData && !caseData.partner && ASSIGNABLE_STATUSES.has(caseData.status)
+
+  async function handleAssignPartner() {
+    if (!caseData) return
+    setError(null)
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/v1/cases/${caseId}/assign-partner`, { method: "POST" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(
+          data.message ??
+            (data.error === "NOT_FOUND"
+              ? "Nenhum parceiro disponível. Defina o parceiro técnico do condomínio em “Parceiro técnico”."
+              : "Erro ao atribuir o parceiro."),
+        )
+        return
+      }
+      const refreshed = await fetch(`/api/v1/cases/${caseId}`)
+      if (refreshed.ok) setCaseData(await refreshed.json())
+    } catch {
+      setError("Erro inesperado. Tente novamente.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   async function handleApprove() {
     if (!caseData) return
@@ -252,6 +290,39 @@ export default function SindicoCaseDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Responsável técnico */}
+          {(caseData.partner || canAssignPartner) && (
+            <div className="rounded-lg bg-paper shadow-hair p-5">
+              <h3 className="mb-2 text-sm font-semibold text-ink-900">Responsável técnico</h3>
+              {caseData.partner ? (
+                <p className="text-sm text-ink-700">
+                  <span className="font-medium">{caseData.partner.user.name}</span> — parceiro
+                  atribuído a este caso.
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-ink-600">
+                    Este caso está pronto para ser encaminhado ao parceiro técnico. O parceiro
+                    fixo do condomínio tem prioridade; sem parceiro fixo, a plataforma usa o
+                    matching automático.
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAssignPartner}
+                    disabled={submitting}
+                    data-testid="assign-partner-button"
+                  >
+                    {submitting ? "Atribuindo…" : "Atribuir ao parceiro"}
+                  </Button>
+                </div>
+              )}
+              {error && !isPendingApproval && (
+                <p className="mt-2 text-sm text-iron-600">{error}</p>
+              )}
+            </div>
+          )}
 
           {/* Escopo da reforma */}
           {scope && (

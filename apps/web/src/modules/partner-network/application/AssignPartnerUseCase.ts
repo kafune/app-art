@@ -41,46 +41,56 @@ export class AssignPartnerUseCase {
       )
     }
 
-    // (b) Fetch condominium city/state
+    // (b) Fetch condominium city/state + parceiro fixo
     const condominium = await prisma.condominium.findFirst({
       where: { id: reformCase.condominiumId, tenantId },
-      select: { city: true, state: true },
+      select: { city: true, state: true, partner: true },
     })
     if (!condominium) throw new NotFoundError("Condominium", reformCase.condominiumId)
 
-    // (c) Extract services from reformScope JSON
-    const scope = reformCase.reformScope as Record<string, unknown> | null
-    const servicesNeeded: string[] = Array.isArray(scope?.services)
-      ? (scope.services as string[])
-      : []
+    // (c) Parceiro fixo do condomínio tem prioridade sobre o matcher.
+    let selected: Partner
+    let selectionReason: string
 
-    // (d) Find and rank available partners
-    const availablePartners = await this.partnerRepo.findAvailable(
-      tenantId,
-      condominium.city,
-      condominium.state,
-    )
+    if (condominium.partner && condominium.partner.active) {
+      selected = condominium.partner
+      selectionReason = "parceiro fixo do condomínio"
+    } else {
+      // (d) Extract services from reformScope JSON
+      const scope = reformCase.reformScope as Record<string, unknown> | null
+      const servicesNeeded: string[] = Array.isArray(scope?.services)
+        ? (scope.services as string[])
+        : []
 
-    const ranked = matchPartners(availablePartners, {
-      city: condominium.city,
-      state: condominium.state,
-      servicesNeeded,
-      riskLevel: (reformCase.riskLevel ?? "LOW") as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-    })
+      // (e) Find and rank available partners
+      const availablePartners = await this.partnerRepo.findAvailable(
+        tenantId,
+        condominium.city,
+        condominium.state,
+      )
 
-    // (e) No match → error
-    if (ranked.length === 0) {
-      throw new NotFoundError("Partner", "no-match")
+      const ranked = matchPartners(availablePartners, {
+        city: condominium.city,
+        state: condominium.state,
+        servicesNeeded,
+        riskLevel: (reformCase.riskLevel ?? "LOW") as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+      })
+
+      // No match → error
+      if (ranked.length === 0) {
+        throw new NotFoundError("Partner", "no-match")
+      }
+
+      selected = ranked[0]!
+      selectionReason = "matcher (cidade/estado/especialidade)"
     }
-
-    const selected = ranked[0]!
 
     // Validate transition
     const machine = new CaseStateMachine(reformCase.status, reformCase.riskLevel)
     machine.transition("ASSIGNED_TO_PARTNER", {
       previousStatus: reformCase.status,
       triggeredBy: assignedBy,
-      reason: `Parceiro atribuído automaticamente: ${selected.id}`,
+      reason: `Parceiro ${selected.id} atribuído (${selectionReason})`,
     })
 
     // (f) Transaction: update case, create logs
@@ -99,7 +109,7 @@ export class AssignPartnerUseCase {
           fromStatus: reformCase.status,
           toStatus: "ASSIGNED_TO_PARTNER",
           triggeredBy: assignedBy,
-          reason: `Parceiro ${selected.id} atribuído`,
+          reason: `Parceiro ${selected.id} atribuído (${selectionReason})`,
         },
       })
 
@@ -109,7 +119,7 @@ export class AssignPartnerUseCase {
           caseId,
           action: "partner.assigned",
           triggeredBy: assignedBy,
-          details: { partnerId: selected.id },
+          details: { partnerId: selected.id, selectionReason },
         },
       })
 

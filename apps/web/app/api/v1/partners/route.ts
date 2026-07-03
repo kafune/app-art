@@ -27,11 +27,15 @@ export async function GET(req: NextRequest) {
     if (city) whereClause["cities"] = { hasSome: [city, "*"] }
     if (specialty) whereClause["specialties"] = { has: specialty }
 
-    const partners = await prisma.partner.findMany({ where: whereClause })
+    const partners = await prisma.partner.findMany({
+      where: whereClause,
+      include: { user: { select: { name: true } } },
+    })
 
     // Return only non-sensitive fields — omit userId and basePrice
     const safe = partners.map((p) => ({
       id: p.id,
+      name: p.user.name,
       type: p.type,
       creaNumber: p.creaNumber,
       specialties: p.specialties,

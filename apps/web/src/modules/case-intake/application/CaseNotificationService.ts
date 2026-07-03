@@ -218,16 +218,20 @@ export class CaseNotificationService {
       }
 
       if (target === "PARTNER") {
-        // Caso já tem parceiro atribuído → notifica só ele; caso contrário
-        // (ex.: HUMAN_REVIEW_REQUIRED), todos os parceiros ativos do tenant
-        // são revisores técnicos em potencial.
+        // Prioridade de destinatário:
+        //   1. parceiro atribuído ao caso → notifica só ele;
+        //   2. parceiro técnico fixo do condomínio → notifica só ele;
+        //   3. fallback (ex.: HUMAN_REVIEW_REQUIRED sem parceiro) → todos os
+        //      parceiros ativos do tenant, revisores técnicos em potencial.
         const reformCase = await prisma.reformCase.findFirst({
           where: { id: caseId, tenantId },
-          select: { partnerId: true },
+          select: { partnerId: true, condominium: { select: { partnerId: true } } },
         })
+        const targetPartnerId =
+          reformCase?.partnerId ?? reformCase?.condominium?.partnerId ?? null
         const partners = await prisma.partner.findMany({
-          where: reformCase?.partnerId
-            ? { id: reformCase.partnerId, tenantId, active: true }
+          where: targetPartnerId
+            ? { id: targetPartnerId, tenantId, active: true }
             : { tenantId, active: true },
           select: { user: { select: { email: true, name: true, active: true } } },
         })

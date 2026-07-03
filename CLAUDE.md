@@ -472,9 +472,11 @@ model Condominium {
   city      String
   state     String
   active    Boolean  @default(true)
+  partnerId String?  // parceiro técnico fixo do condomínio (definido pelo síndico/admin)
   createdAt DateTime @default(now())
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  partner     Partner?            @relation("CondominiumPreferredPartner", fields: [partnerId], references: [id])
   units       Unit[]
   cases       ReformCase[]
   policyLinks CondominiumPolicy[]
@@ -985,6 +987,9 @@ POST      /api/v1/superadmin/users/:id/anonymize   # LGPD: anonimiza usuário a 
 # ── SÍNDICO / REVISÃO DE CASO ─────────────────────────────────────────────────
 POST      /api/v1/cases/:caseId/syndic-review/approve   # CONDOMINIUM — aprova reforma
 POST      /api/v1/cases/:caseId/syndic-review/reject    # CONDOMINIUM — recusa (reason)
+GET       /api/v1/condominiums/:id/partner              # CONDOMINIUM (próprio) | ADMIN | MANAGER | SUPER_ADMIN — parceiro fixo
+PUT       /api/v1/condominiums/:id/partner              # idem — define/remove ({ partnerId | null })
+POST      /api/v1/cases/:caseId/assign-partner          # CONDOMINIUM (próprio) | ADMIN | MANAGER | SUPER_ADMIN — atribui (fixo > matcher)
 GET       /api/v1/specialists                            # público — metadados dos specialists do chat
 
 # ── LGPD / "EU" (usuário autenticado) ─────────────────────────────────────────
