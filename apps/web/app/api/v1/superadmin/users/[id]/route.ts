@@ -159,16 +159,40 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
       }
     }
 
-    const updated = await prisma.user.update({
-      where: { id: target.id },
-      data: {
-        name: body.name?.trim() ?? undefined,
-        email: body.email ? body.email.trim().toLowerCase() : undefined,
-        role: finalRole,
-        tenantId: finalTenantId,
-        condominiumId: finalCondominiumId,
-      },
-      select: USER_SELECT,
+    const tenantChanged = finalTenantId !== target.tenantId
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: target.id },
+        data: {
+          name: body.name?.trim() ?? undefined,
+          email: body.email ? body.email.trim().toLowerCase() : undefined,
+          role: finalRole,
+          tenantId: finalTenantId,
+          condominiumId: finalCondominiumId,
+        },
+        select: USER_SELECT,
+      })
+
+      // Partner.tenantId é denormalizado de User.tenantId (não há FK entre
+      // eles). Sem sincronizar aqui, o parceiro some das listagens do tenant
+      // novo (GET /admin/partners, GET /partners) e fica preso ao antigo.
+      if (target.partner && tenantChanged) {
+        await tx.partner.update({
+          where: { id: target.partner.id },
+          data: { tenantId: finalTenantId },
+        })
+
+        // Remove vínculos de "parceiro fixo" em condomínios do tenant
+        // antigo — mantê-los apontando para um parceiro de outro tenant
+        // violaria o isolamento por tenant (CLAUDE.md §2.4).
+        await tx.condominium.updateMany({
+          where: { partnerId: target.partner.id },
+          data: { partnerId: null },
+        })
+      }
+
+      return updatedUser
     })
 
     return NextResponse.json({ user: updated })

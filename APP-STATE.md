@@ -208,6 +208,7 @@ Todos em `apps/web/src/modules/`. **12 módulos implementados** (CLAUDE.md docum
 - Use cases: `Assign`, `PartnerAccept`, `PartnerDecline`, `SetCondominiumPartner` — transacionais com logs.
 - **Parceiro fixo do condomínio** (`Condominium.partnerId`): síndico define em `/sindico/parceiro` (`PUT /api/v1/condominiums/:id/partner`); `AssignPartnerUseCase` o prioriza sobre o matcher (`POST /api/v1/cases/:caseId/assign-partner`, acionado pelo síndico/admin). O parceiro fixo vê todos os casos do condomínio (leitura/acompanhamento) via `GET /api/v1/cases` (`assignedToMe: false`), página de detalhe e `assertCaseAccess({ allowPreferredPartnerRead })`; ações (aceite, vistorias) continuam restritas ao parceiro atribuído. Notificações PARTNER priorizam: atribuído > fixo do condomínio > todos.
 - ✅ `AssignPartnerUseCase` corrigido: usa `scope.services` (não `servicesNeeded`).
+- ✅ `Partner.tenantId` (denormalizado de `User.tenantId`, sem FK entre eles) é sincronizado por `PATCH /api/v1/superadmin/users/:id` quando o SUPER_ADMIN troca o tenant de um usuário PARTNER; a mesma transação limpa `Condominium.partnerId` de condomínios do tenant antigo que apontavam para ele (evita referência cross-tenant). Migration `20260703010000_fix_partner_tenant_sync` reconcilia registros já divergentes.
 - Testes: `PartnerMatcher.test.ts`, `AssignPartner.test.ts`, `SetCondominiumPartner.test.ts`.
 
 ### analytics — ✅ implementado (não documentado no CLAUDE.md)
