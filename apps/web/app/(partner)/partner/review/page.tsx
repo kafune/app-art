@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/infrastructure/auth/getSessionUser"
 import { prisma } from "@/infrastructure/database/prisma"
-import { TopBar, RiskBadge, Eyebrow } from "@/interfaces/components/ui"
+import { TopBar, RiskBadge, Eyebrow, StatusChip } from "@/interfaces/components/ui"
 
 export const dynamic = "force-dynamic"
 
@@ -26,6 +26,36 @@ export default async function PartnerReviewQueuePage() {
     orderBy: { updatedAt: "asc" },
     take: 50,
   })
+
+  // Pareceres já emitidos por este revisor — o caso muda de status após a
+  // decisão e sai da fila; sem esta lista ele sumiria da área do parceiro.
+  const reviewedTransitions = await prisma.caseTransitionLog.findMany({
+    where: {
+      triggeredBy: `reviewer:${user.id}`,
+      case: { tenantId: user.tenantId },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 40,
+    select: {
+      id: true,
+      toStatus: true,
+      reason: true,
+      createdAt: true,
+      case: {
+        select: {
+          id: true,
+          protocol: true,
+          status: true,
+          condominium: { select: { name: true } },
+          unit: { select: { identifier: true } },
+        },
+      },
+    },
+  })
+  // Uma linha por caso (parecer mais recente)
+  const reviewed = [
+    ...new Map(reviewedTransitions.map((t) => [t.case.id, t])).values(),
+  ].slice(0, 20)
 
   return (
     <>
@@ -91,6 +121,55 @@ export default async function PartnerReviewQueuePage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pareceres já emitidos por este revisor */}
+        {reviewed.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-sm font-semibold text-ink-900">Revisados por mim</h2>
+            <div className="overflow-x-auto rounded-lg bg-surface shadow-hair">
+              <div className="grid min-w-[680px] grid-cols-[120px_1fr_170px_120px_90px] items-center gap-4 border-b border-divider bg-bone-50 px-5 py-3">
+                <Eyebrow>Protocolo</Eyebrow>
+                <Eyebrow>Condomínio · Unidade</Eyebrow>
+                <Eyebrow>Resultado</Eyebrow>
+                <Eyebrow>Parecer em</Eyebrow>
+                <span />
+              </div>
+              <div className="divide-y divide-divider">
+                {reviewed.map((t) => (
+                  <div
+                    key={t.id}
+                    className="grid min-w-[680px] grid-cols-[120px_1fr_170px_120px_90px] items-center gap-4 px-5 py-4 transition-colors hover:bg-bone-50"
+                    data-testid="partner-reviewed-item"
+                  >
+                    <span className="font-mono text-xs font-medium text-ink-500">
+                      {t.case.protocol}
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-ink-900">
+                        {t.case.condominium?.name ?? "—"}
+                      </div>
+                      <div className="mt-0.5 text-xs text-ink-500">
+                        Un.&nbsp;{t.case.unit?.identifier ?? "—"}
+                      </div>
+                    </div>
+                    <StatusChip status={t.toStatus} />
+                    <span className="font-mono text-xs text-ink-500">
+                      {new Date(t.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
+                    <div className="flex justify-end">
+                      <Link
+                        href={`/partner/review/${t.case.id}`}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-line-strong px-3 text-xs font-medium text-ink-700 transition-colors hover:bg-bone-200"
+                      >
+                        Ver →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

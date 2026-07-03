@@ -81,6 +81,14 @@ export async function assertCaseAccess(
         partner.tenantId === user.tenantId
       if (isReviewer) break
 
+      // Quem já emitiu parecer neste caso mantém acesso de consulta
+      // (modo leitura do parecer + documentos) mesmo após a transição.
+      const reviewedByMe = await prisma.caseTransitionLog.findFirst({
+        where: { caseId: reformCase.id, triggeredBy: `reviewer:${user.id}` },
+        select: { id: true },
+      })
+      if (reviewedByMe) break
+
       if (opts?.allowPreferredPartnerRead) {
         const preferred = await prisma.condominium.findFirst({
           where: { id: reformCase.condominiumId, partnerId: partner.id },

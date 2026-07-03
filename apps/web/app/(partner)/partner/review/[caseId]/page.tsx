@@ -57,6 +57,21 @@ export default async function PartnerReviewCasePage({
   const scope = reformCase.reformScope as ReformScope | null
   const aiAnalysis = extractAiAnalysis(reformCase.documents)
 
+  // Parecer já emitido (caso fora de HUMAN_REVIEW_REQUIRED): exibe em modo
+  // leitura para o revisor consultar depois — o caso não "some" após a decisão.
+  const lastReview =
+    reformCase.status === "HUMAN_REVIEW_REQUIRED"
+      ? null
+      : await prisma.caseTransitionLog.findFirst({
+          where: {
+            caseId: reformCase.id,
+            fromStatus: "HUMAN_REVIEW_REQUIRED",
+            triggeredBy: { startsWith: "reviewer:" },
+          },
+          orderBy: { createdAt: "desc" },
+          select: { toStatus: true, reason: true, createdAt: true, triggeredBy: true },
+        })
+
   return (
     <>
       <TopBar
@@ -168,6 +183,29 @@ export default async function PartnerReviewCasePage({
                 Registrar parecer técnico
               </h2>
               <ReviewDecisionForm caseId={reformCase.id} redirectTo="/partner/review" />
+            </Card>
+          ) : lastReview ? (
+            <Card padded>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold tracking-snug text-ink-900">
+                  Parecer registrado
+                  {lastReview.triggeredBy === `reviewer:${user.id}` && " por você"}
+                </h2>
+                <div className="flex items-center gap-3">
+                  <StatusChip status={lastReview.toStatus} />
+                  <span className="font-mono text-xs text-ink-400">
+                    {new Date(lastReview.createdAt).toLocaleString("pt-BR", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+              </div>
+              {lastReview.reason && (
+                <p className="whitespace-pre-wrap rounded-sm bg-bone-50 px-4 py-3 text-sm leading-relaxed text-ink-700">
+                  {lastReview.reason}
+                </p>
+              )}
             </Card>
           ) : (
             <Card padded>
