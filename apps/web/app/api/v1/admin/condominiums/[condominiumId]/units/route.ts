@@ -10,6 +10,7 @@ const notFound = () => NextResponse.json({ error: "NOT_FOUND" }, { status: 404 }
 
 const CreateUnitSchema = z.object({
   identifier: z.string().min(1).max(40),
+  block: z.string().max(60).optional(),
   floor: z.string().max(20).optional(),
   ownerName: z.string().max(160).optional(),
   ownerEmail: z.string().email().optional().or(z.literal("")),
@@ -47,6 +48,7 @@ export async function GET(_req: NextRequest, ctx: { params: { condominiumId: str
       units: units.map((u) => ({
         id: u.id,
         identifier: u.identifier,
+        block: u.block,
         floor: u.floor,
         ownerName: u.ownerName,
         ownerEmail: u.ownerEmail,
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest, ctx: { params: { condominiumId: str
       data: {
         condominiumId: condominium.id,
         identifier: body.identifier.trim(),
+        block: body.block?.trim() || null,
         floor: body.floor?.trim() || null,
         ownerName: body.ownerName?.trim() || null,
         ownerEmail: body.ownerEmail?.trim().toLowerCase() || null,
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest, ctx: { params: { condominiumId: str
         unit: {
           id: unit.id,
           identifier: unit.identifier,
+          block: unit.block,
           floor: unit.floor,
           ownerName: unit.ownerName,
           ownerEmail: unit.ownerEmail,

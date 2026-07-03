@@ -5,6 +5,7 @@ import type { Unit } from "./constants"
 
 const EMPTY_UNIT = {
   identifier: "",
+  block: "",
   floor: "",
   ownerName: "",
   ownerEmail: "",
@@ -14,13 +15,14 @@ type UnitForm = typeof EMPTY_UNIT
 
 const toForm = (u: Unit): UnitForm => ({
   identifier: u.identifier,
+  block: u.block ?? "",
   floor: u.floor ?? "",
   ownerName: u.ownerName ?? "",
   ownerEmail: u.ownerEmail ?? "",
   ownerPhone: u.ownerPhone ?? "",
 })
 
-const COLS = "grid min-w-[640px] grid-cols-[120px_90px_1fr_1fr_150px] items-center gap-3"
+const COLS = "grid min-w-[720px] grid-cols-[120px_90px_90px_1fr_1fr_150px] items-center gap-3"
 
 /** Painel de gestão das unidades de um condomínio (CRUD inline). */
 export function UnitsPanel({
@@ -134,7 +136,13 @@ export function UnitsPanel({
             value={form.identifier}
             onChange={(e) => setForm((f) => ({ ...f, identifier: e.target.value }))}
             required
-            placeholder="Ex.: 101, Bloco A-12"
+            placeholder="Ex.: 101"
+          />
+          <Input
+            label="Torre / bloco"
+            value={form.block}
+            onChange={(e) => setForm((f) => ({ ...f, block: e.target.value }))}
+            placeholder="Opcional — Ex.: A"
           />
           <Input
             label="Andar"
@@ -177,6 +185,7 @@ export function UnitsPanel({
         <div className="overflow-x-auto rounded-lg bg-surface shadow-hair">
           <div className={`${COLS} border-b border-divider bg-bone-50 px-4 py-2`}>
             <Eyebrow>Unidade</Eyebrow>
+            <Eyebrow>Bloco</Eyebrow>
             <Eyebrow>Andar</Eyebrow>
             <Eyebrow>Proprietário</Eyebrow>
             <Eyebrow>E-mail</Eyebrow>
@@ -192,6 +201,11 @@ export function UnitsPanel({
                     onChange={(e) =>
                       setEditForm((f) => ({ ...f, identifier: e.target.value }))
                     }
+                  />
+                  <Input
+                    label="Torre / bloco"
+                    value={editForm.block}
+                    onChange={(e) => setEditForm((f) => ({ ...f, block: e.target.value }))}
                   />
                   <Input
                     label="Andar"
@@ -237,6 +251,7 @@ export function UnitsPanel({
               ) : (
                 <div key={u.id} className={`${COLS} px-4 py-3`}>
                   <span className="text-sm font-medium text-ink-900">{u.identifier}</span>
+                  <span className="text-sm text-ink-600">{u.block ?? "—"}</span>
                   <span className="text-sm text-ink-600">{u.floor ?? "—"}</span>
                   <span className="text-sm text-ink-600">{u.ownerName ?? "—"}</span>
                   <span className="truncate text-xs text-ink-500">{u.ownerEmail ?? "—"}</span>

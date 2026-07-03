@@ -17,20 +17,6 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   transpilePackages: ["@reformai/database", "@reformai/templates"],
-  async redirects() {
-    return [
-      {
-        source: '/register',
-        destination: '/login',
-        permanent: true,
-      },
-      {
-        source: '/register/:condominiumId',
-        destination: '/login',
-        permanent: true,
-      },
-    ]
-  },
   experimental: {
     // Raiz do monorepo: faz o standalone preservar o layout aninhado
     // (.next/standalone/apps/web/server.js + node_modules na raiz), que é o que

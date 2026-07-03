@@ -33,7 +33,7 @@ implementado de ponta a ponta, com painéis para os 4 perfis de usuário
 - PWA com suporte a offline e push notifications.
 
 **O que falta / está frágil:**
-- Autocadastro público de morador **removido** (commit `0fab07a`) — substituído por convite; pages `/register` podem estar desatualizadas.
+- Autocadastro público de morador **restaurado**: pages `/register` (escolhe condomínio) e `/register/[condominiumId]` (QR do síndico) + `POST /api/v1/auth/register` ativos; convite continua disponível como fluxo alternativo.
 - Sem `middleware.ts` global — autorização rota a rota; RBAC de MANAGER foi corrigido (commits `a0f153e`, `c310193`) mas a cobertura ainda não é 100%.
 - `CLAUDE.md` está **defasado** vs schema, rotas e features reais (ver §20).
 - Débito menor: métodos de repositório virando código morto (Inspection/Partner); `DeterministicEvaluator` com cobertura de testes baixa.
@@ -68,7 +68,7 @@ implementado de ponta a ponta, com painéis para os 4 perfis de usuário
 /
 ├── apps/web/
 │   ├── app/                      # App Router (páginas + API)
-│   │   ├── login/  register/     # auth pública + autocadastro (registro desativado)
+│   │   ├── login/  register/     # auth pública + autocadastro de morador (QR do síndico)
 │   │   ├── forgot-password/      # solicita reset de senha
 │   │   ├── reset-password/       # confirma novo password via token
 │   │   ├── offline/              # PWA offline fallback
@@ -187,11 +187,11 @@ Todos em `apps/web/src/modules/`. **12 módulos implementados** (CLAUDE.md docum
 - Teste: `UploadDocumentUseCase.test.ts`, `documentOrigin.test.ts`.
 
 ### identity — ⚠️ implementado, em expansão
-- `application/RegisterClientUseCase.ts` — cria `Unit` (se não existe) + `User CLIENT` em `$transaction` ✅ corrigido; grava `lgpdConsentAt`. ⚠️ Rota pública `/api/v1/auth/register` foi **desativada** (commit `0fab07a`).
-- `application/CreateInviteUseCase.ts` — convite de usuário (substitui autocadastro público).
+- `application/RegisterClientUseCase.ts` — cria `Unit` (se não existe), **reivindica** unidade pré-cadastrada sem morador (preenche `ownerEmail`/`ownerName`) e **rejeita** unidade vinculada a outro e-mail; `User CLIENT` em `$transaction`; grava `lgpdConsentAt`. Rota pública `/api/v1/auth/register` **ativa** (rate-limit por IP e por e-mail).
+- `application/CreateInviteUseCase.ts` — convite de usuário (fluxo alternativo ao autocadastro).
 - `application/RequestPasswordResetUseCase.ts` — gera token de reset, envia e-mail.
 - `application/ConfirmPasswordResetUseCase.ts` — valida token, atualiza senha.
-- Testes: `CreateInvite.test.ts`, `PasswordReset.test.ts`.
+- Testes: `RegisterClient.test.ts`, `CreateInvite.test.ts`, `PasswordReset.test.ts`.
 
 ### inspection-scheduling — ✅ implementado
 - `domain/InspectionRules.ts` — sequência `INITIAL → INTERMEDIATE? → CRITICAL_SYSTEM? → FINAL`; aplica a regra "Impermeabilização exige INTERMEDIATE concluída antes da FINAL" (CLAUDE.md §13.5, não bypassável).
@@ -313,7 +313,7 @@ sem `middleware.ts` global — autorização rota a rota.
 | `GET/POST /api/auth/[...nextauth]` | público (NextAuth) |
 | `GET /api/health` | público (ping `SELECT 1`) |
 | `GET /api/v1/public/condominiums` `/:id` | **público** (autocadastro/convite) |
-| `POST /api/v1/auth/register` | ~~público~~ **desativado** (commit `0fab07a`) |
+| `POST /api/v1/auth/register` | **público** — autocadastro de morador (rate-limit IP + e-mail) |
 | `POST /api/v1/auth/password-reset/request` | **público** — envia e-mail de reset |
 | `POST /api/v1/auth/password-reset/confirm` | **público** — valida token e atualiza senha |
 
@@ -369,7 +369,7 @@ Todas as páginas estão **construídas com UI real** — nenhum stub/placeholde
 | Perfil | Páginas |
 |--------|---------|
 | Público | `/` (landing), `/login`, `/forgot-password`, `/reset-password` |
-| Público (deprecado) | `/register`, `/register/[condominiumId]` — páginas existem mas API desativada (commit `0fab07a`) |
+| Público | `/register` (escolhe condomínio), `/register/[condominiumId]` (form + auto-login → `/cases`) |
 | Morador (CLIENT) | `/cases`, `/cases/[caseId]` (chat SSE), `/cases/[caseId]/documents` |
 | Admin / Superadmin | `/dashboard`, `/review-queue` `+ /[caseId]`, `/condominiums`, `/partners`, `/policies`, `/audit` |
 | Superadmin | `/skills`, `/tenants`, `/users` (nav extra no layout) |
@@ -410,8 +410,9 @@ Login faz redirect por role (CONDOMINIUM→sindico, PARTNER→partner, ADMIN→d
 - **Reset de senha admin** — `POST /superadmin/users/:id/reset-password`.
 
 ### Autocadastro por QR Code (síndico)
-- Síndico em `/sindico/cadastro` → `RegistrationQrCard` gera QR do link de convite.
-- ⚠️ O autocadastro público via `/register` foi removido (commit `0fab07a`) — as pages podem estar desatualizadas.
+- Síndico em `/sindico/cadastro` → `RegistrationQrCard` gera QR apontando para `/register/[condominiumId]`.
+- Morador se cadastra, unidade é criada ou reivindicada (se pré-cadastrada sem morador), login automático e cai em `/cases` para iniciar a triagem.
+- Síndico recebe notificação in-app (+ e-mail se provider configurado) a cada novo cadastro.
 
 ### Report Skills (modelo `ReportSkill`)
 - `/skills` (SUPER_ADMIN) — cola Anthropic Agent Skill ID para `MEMORIAL_DESCRITIVO` e `CRONOGRAMA`.
@@ -580,7 +581,7 @@ o código atual. Divergências conhecidas:
 4. **Event bus** — CLAUDE.md §5 lista `shared/events/` como event bus; na prática só há tipos + callback no worker.
 5. **Route group `(client)`** — não usado; a área do morador é `app/cases/`.
 6. **Bounded contexts** — CLAUDE.md documenta 10; existem 12 (`analytics`, `norms`).
-7. **Autocadastro público** — CLAUDE.md descreve autocadastro público; foi removido (commit `0fab07a`), substituído por fluxo de convite.
+7. ~~**Autocadastro público**~~ — restaurado; CLAUDE.md e código estão alinhados (convite permanece como fluxo alternativo).
 8. **Infraestrutura adicional** — email, push, rate-limiter, embedding não documentados no CLAUDE.md.
 
 ---
@@ -602,7 +603,7 @@ o código atual. Divergências conhecidas:
 | ~~11~~ | ~~`documents` grava `origin` fixo em `CLIENT`~~ | ✅ corrigido (origin por papel) |
 | 12 | Métodos de repositório virando código morto (Inspection/Partner) por uso direto de `prisma` | Baixa (limpeza) |
 | 13 | `DeterministicEvaluator` (módulo crítico) com apenas 3 casos de teste | Baixa (cobertura) |
-| 14 | Pages `/register` e `/register/[condominiumId]` ainda existem mas a API foi desativada — inconsistência UI | Média |
+| ~~14~~ | ~~Pages `/register` órfãs com API desativada~~ | ✅ corrigido (autocadastro restaurado ponta a ponta; redirect `/register→/login` removido do `next.config.mjs`) |
 | 15 | `NormSearchService` sem testes unitários | Baixa |
 | 16 | VAPID keys e SMTP não configurados no seed/docker-compose — push e e-mail falham silenciosamente em dev | Informativa |
 
@@ -610,10 +611,9 @@ o código atual. Divergências conhecidas:
 
 ## 20. PRÓXIMOS PASSOS SUGERIDOS
 
-1. Remover ou redirecionar as pages `/register/*` que ficaram órfãs após a remoção do autocadastro público (#19.14).
-2. Ampliar cobertura de testes do `DeterministicEvaluator` (#19.13) e adicionar testes para `NormSearchService` (#19.15).
-3. Documentar no `CLAUDE.md` os bounded contexts `analytics` e `norms`, o módulo de email/push e as novas migrations (§18.1, §18.6, §18.8).
-4. Limpar métodos de repositório mortos em `Inspection`/`Partner` (#19.12).
+1. Ampliar cobertura de testes do `DeterministicEvaluator` (#19.13) e adicionar testes para `NormSearchService` (#19.15).
+2. Documentar no `CLAUDE.md` os bounded contexts `analytics` e `norms`, o módulo de email/push e as novas migrations (§18.1, §18.6, §18.8).
+3. Limpar métodos de repositório mortos em `Inspection`/`Partner` (#19.12).
 5. Decidir se `PriceCalculator` deve usar `riskLevel` para precificação diferenciada (#19.6).
 6. Configurar VAPID keys no `docker-compose.yml` para push funcionar em dev (#19.16).
 
